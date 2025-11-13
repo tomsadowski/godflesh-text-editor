@@ -19,9 +19,9 @@ pub const LINK_SYMBOL: &str      = "=>";
 pub const TOGGLE_SYMBOL: &str    = "```";
 pub const QUOTE_SYMBOL: &str     = ">";
 pub const LIST_ITEM_SYMBOL: &str = "*";
-pub const HEADING_1_SYMBOL: &str   = "#";
-pub const HEADING_2_SYMBOL: &str   = "##";
-pub const HEADING_3_SYMBOL: &str   = "###";
+pub const HEADING_1_SYMBOL: &str = "#";
+pub const HEADING_2_SYMBOL: &str = "##";
+pub const HEADING_3_SYMBOL: &str = "###";
 
 pub const GEMINI_PORT: &str   = "1965";
 pub const GEMINI_SCHEME: &str = "gemini";
@@ -64,47 +64,32 @@ pub enum GemTextLine {
 impl FromStr for GemTextLine {
     type Err = ParseError;
     fn from_str(line: &str) -> Result<GemTextLine, Self::Err> {
-        if let Some((symbol, text)) = line.split_at_checked(1) 
-        {
-            if symbol == QUOTE_SYMBOL 
-            {
-                return Ok(GemTextLine::Quote(text.to_string()))
+        if let Some((symbol, text)) = line.split_at_checked(3) {
+            if symbol == TOGGLE_SYMBOL {
+                return Ok(GemTextLine::Toggle)
             }
-            if symbol == LIST_ITEM_SYMBOL 
-            {
-                return Ok(GemTextLine::ListItem(text.to_string()))
-            }
-            if symbol == HEADING_1_SYMBOL 
-            {
-                if let Some((symbol, text)) = line.split_at_checked(2) 
-                {
-                    if symbol == HEADING_2_SYMBOL 
-                    {
-                        if let Some((symbol, text)) = line.split_at_checked(3) 
-                        {
-                            if symbol == HEADING_3_SYMBOL 
-                            {
-                                return Ok(GemTextLine::Heading(Heading::Three(text.to_string())))
-                            }
-                        }
-                        return Ok(GemTextLine::Heading(Heading::Two(text.to_string())))
-                    }
-                }
-                return Ok(GemTextLine::Heading(Heading::One(text.to_string())))
+            if symbol == HEADING_3_SYMBOL {
+                return Ok(GemTextLine::Heading(Heading::Three(text.to_string())))
             }
         }
-        if let Some((symbol, text)) = line.split_at_checked(2) 
-        {
-            if symbol == LINK_SYMBOL 
-            {
+        if let Some((symbol, text)) = line.split_at_checked(2) {
+            if symbol == LINK_SYMBOL {
                 let link = Link::from_str(text)?;
                 return Ok(GemTextLine::Link(link))
             }
+            if symbol == HEADING_2_SYMBOL {
+                return Ok(GemTextLine::Heading(Heading::Two(text.to_string())))
+            }
         }
-        if let Some((symbol, text)) = line.split_at_checked(3) 
-        {
-            if symbol == TOGGLE_SYMBOL {
-                return Ok(GemTextLine::Toggle)
+        if let Some((symbol, text)) = line.split_at_checked(1) {
+            if symbol == QUOTE_SYMBOL {
+                return Ok(GemTextLine::Quote(text.to_string()))
+            }
+            if symbol == LIST_ITEM_SYMBOL {
+                return Ok(GemTextLine::ListItem(text.to_string()))
+            }
+            if symbol == HEADING_1_SYMBOL {
+                return Ok(GemTextLine::Heading(Heading::One(text.to_string())))
             }
         }
         Ok(GemTextLine::Text(line.to_string()))
@@ -160,28 +145,57 @@ impl FromStr for Link {
 }
 #[derive(Debug, Clone)]
 pub enum Status {
+    //10 => Status::Input(meta),
     Input(String),
+    //11 => Status::Secret(meta),
     Secret(String),
+
+    //20 => Status::Success(meta),
     Success(String),
+    //21 => Status::SuccessEndOfClientCertificateSession(meta),
     SuccessEndOfClientCertificateSession(String),
+
+    //30 => Status::RedirectTemporary(meta),
     RedirectTemporary(String),
+    //31 => Status::RedirectPermanent(meta),
     RedirectPermanent(String),
+
+    //40 => Status::TemporaryFailure(meta),
     TemporaryFailure(String),
+    //41 => Status::ServerUnavailable(meta),
     ServerUnavailable(String),
+    //42 => Status::CGIError(meta),
     CGIError(String),
+    //43 => Status::ProxyError(meta),
     ProxyError(String),
+    //44 => Status::SlowDown(meta),
     SlowDown(String),
+
+    //50 => Status::PermanentFailure(meta),
     PermanentFailure(String),
+    //51 => Status::NotFound(meta),
     NotFound(String),
+    //52 => Status::Gone(meta),
     Gone(String),
+    //53 => Status::ProxyRequestRefused(meta),
     ProxyRequestRefused(String),
+    //59 => Status::BadRequest(meta),
     BadRequest(String),
+
+    //60 => Status::ClientCertificateRequired(meta),
     ClientCertificateRequired(String),
+    //61 => Status::TransientCertificateRequired(meta),
     TransientCertificateRequired(String),
+    //62 => Status::AuthorisedCertificatedRequired(meta),
     AuthorisedCertificatedRequired(String),
+    //63 => Status::CertificateNotAccepted(meta),
     CertificateNotAccepted(String),
+    //64 => Status::FutureCertificateRejected(meta),
     FutureCertificateRejected(String),
+    //65 => Status::ExpiredCertificateRejected(meta),
     ExpiredCertificateRejected(String),
+
+    //_ => Status::Unknown(meta),
     Unknown(String),
 } 
 impl Status {

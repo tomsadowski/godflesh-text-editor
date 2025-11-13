@@ -6,11 +6,6 @@ use native_tls::TlsConnector;
 use std::net::{TcpStream, ToSocketAddrs};
 use std::time::Duration;
 
-pub const LEFT: char  = 'e';
-pub const DOWN: char  = 'i';
-pub const UP: char    = 'o';
-pub const RIGHT: char = 'n';
-
 pub fn get_data(url: &url::Url) -> Result<(String, String), String> {
     let host = url.host_str().unwrap_or("");
     let urlf = format!("{}:1965", host);

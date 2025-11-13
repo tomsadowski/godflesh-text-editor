@@ -6,37 +6,44 @@ use crate::{
     util, 
     gemini::{GemTextDoc, Status}
 };
+use ratatui::prelude::*;
 use crossterm::{
-    event::{KeyCode},
+    event::{self, 
+        KeyModifiers, 
+        KeyEvent, 
+        Event, 
+        KeyEventKind, 
+        KeyCode},
 };
-use ratatui::{
-    prelude::*,
-    layout::{Direction},
-};
+
+pub const LEFT: char  = 'e';
+pub const DOWN: char  = 'i';
+pub const UP: char    = 'o';
+pub const RIGHT: char = 'n';
+pub const URL: char   = 'g';
+
 #[derive(Clone, PartialEq, Debug)]
 pub enum Message {
-    Switch(View), 
-    Move(Direction, i8), 
-    Edit(KeyCode), 
-    GoToUrl(Url), 
+    Code(char), 
+    Enter,
+    Escape,
     Stop,
 }
 #[derive(Clone, PartialEq, Debug)]
 pub enum State {
+    Repair, 
     Running, 
-    Stopped
+    Stopped,
 }
 #[derive(Clone, PartialEq, Debug)]
 pub enum View {
-    AddressBar, 
+    AddressBar(Vec<u8>), 
     Prompt(String),
-    Dialogue(String),
     Message(String),
-    Text,
+    Text(i8, i8),
 }
 #[derive(Clone, Debug)]
 pub struct Model {
-    pub status: Option<Status>,
     pub text: Option<GemTextDoc>,
     pub current: Option<Url>,
     pub view: View,
@@ -47,124 +54,153 @@ impl Model {
         let Some(url) = _url else {
             return Self {
                 current: None,
-                status: None,
                 text: None,
                 state: State::Running,
-                view: View::Message("nothin to show ya".to_string()),
+                view: View::Message("nothing to display".to_string()),
             }
         };
-        let data = util::get_data(&url);
-        let (response, text) = 
-            match data {
-                Ok((r, c)) => (r, Some(GemTextDoc::new(c))),
-                Err(r)     => (r, None),
-            };
+        Self::from_url(url)
+    }
+    fn from_url(url: &Url) -> Self {
+        let Ok((response, content)) = util::get_data(&url) else {
+            return Self {
+                current: None,
+                text: None,
+                state: State::Repair,
+                view: View::Message("could not get data".to_string()),
+            }
+        };
+        let Ok(status) = Status::from_str(&response) else {
+            return Self {
+                current: None,
+                text: None,
+                state: State::Repair,
+                view: View::Message("could not parse status".to_string()),
+            }
+        };
+        let (view, text) = match status {
+            Status::Success(meta) => {
+                if meta.starts_with("text/") {
+                    (View::Text(0, 0), Some(GemTextDoc::new(content)))
+                } else {
+                    (
+                        View::Message(format!("recieved nontext response: {}", meta)), 
+                        None
+                    )
+                }
+            }
+            Status::Gone(meta) => {
+                (View::Message(format!("gone :( {}", meta)), None)
+            }
+            Status::RedirectTemporary(new_url) 
+            | Status::RedirectPermanent(new_url) => {
+                (View::Prompt(format!("redirect to {}?", new_url)), None)
+            }
+            Status::TransientCertificateRequired(meta)
+            | Status::AuthorisedCertificatedRequired(meta) => {
+                (View::Prompt(format!("certificate required: {}", meta)), None)
+            }
+            Status::Input(msg) => {
+                (View::Message(format!("input: {}", msg)), None)
+            }
+            Status::Secret(msg) => {
+                (View::Message(format!("secret: {}", msg)), None)
+            }
+            _ => {
+                (View::Message(format!("status type not handled")), None)
+            }
+        };
         Self {
-            current: Some(url.clone()),
-            status: Status::from_str(&response).ok(),
+            view: view,
             text: text,
             state: State::Running,
-            view: View::Text,
+            current: Some(url.clone()),
         }
     }
-//  fn go_to_url(&mut self, url: &Url) {
-//      if let Ok((response, content)) = util::get_data(&url) {
-//          let status = Status::from_str(&response).unwrap();
-//          match status {
-//              Status::Success(meta) => {
-//                  if meta.starts_with("text/") {
-//                      // display text files.
-//                      self.view = View::Text;
-//                      self.text = Some(GemTextDoc::new(content));
-//                  } else {
-//                      // download and try to open the rest.
-//                      self.text = None;
-//                  }
-//              }
-//              Status::Gone(meta) => {
-//                  self.text = None;
-//                  self.view = 
-//                      View::Message(format!("gone :( {}", meta));
-//              }
-//              Status::RedirectTemporary(new_url)
-//              | Status::RedirectPermanent(new_url) => {
-//                  self.text = None;
-//              }
-//              Status::TransientCertificateRequired(_meta)
-//              | Status::AuthorisedCertificatedRequired(_meta) => {
-//                  self.view = 
-//                      View::Prompt(format!("certificate required: {}", meta));
-//                  self.text = None;
-//              }
-//              Status::Input(message) => {
-//                  self.text = None;
-//              }
-//              Status::Secret(message) => {
-//                  self.text = None;
-//              }
-//              other_status => {
-//                  self.text = None;
-//              }
-//          }
-//      }
-//  }
 } 
 impl Widget for &Model {
     fn render(self, area: Rect, buf: &mut Buffer) {
+        let text = match &self.view {
+            View::Text(x, y) => {
+                format!("cursor at: ({}, {})\n{:#?}", x, y, self.text)
+            }
+            View::Message(msg) => {
+                format!("Message: {}", msg)
+            }
+            View::Prompt(msg) => {
+                format!("Prompt: {}", msg)
+            }
+            View::AddressBar(v) => {
+                format!("Address Bar: {}", String::from_utf8_lossy(v))
+            }
+        };
+        buf.set_string(area.x, area.y, text, Style::default());
     }
 }
-
-
-//  use ratatui::prelude::*;
-//  use crossterm::{
-//      event::{self, 
-//          KeyModifiers, 
-//          KeyEvent, 
-//          Event, 
-//          KeyEventKind, 
-//          KeyCode},
-//  };
-
-//  fn process_response(&mut self, status: Status, content: String) {
-//      match status {
-//          Status::Success(meta) => {
-//              if meta.starts_with("text/") {
-//                  // display text files.
-//                  self.focus = View::Content;
-//              } else {
-//                  // download and try to open the rest.
-//                  util::download(content);
-//              }
-//          }
-//          Status::Gone(_meta) => {
-//              self.focus = View::Prompt("Sorry page is gone.".to_string());
-//          }
-//          Status::RedirectTemporary(new_url)
-//          | Status::RedirectPermanent(new_url) => {
-//              follow_link(&new_url);
-//              self.content = None;
-//          }
-//          Status::TransientCertificateRequired(_meta)
-//          | Status::AuthorisedCertificatedRequired(_meta) => {
-//              s.add_layer(Dialog::info(
-//                  "You need a valid certificate to access this page.",
-//              ));
-//              None
-//          }
-//          Status::Input(message) => {
-//              prompt_for_answer(s, url_copy, message);
-//              None
-//          }
-//          Status::Secret(message) => {
-//              prompt_for_secret_answer(s, url_copy, message);
-//              None
-//          }
-//          other_status => {
-//              s.add_layer(Dialog::info(format!("ERROR: {:?}", other_status)));
-//              None
-//          }
-//      }
-//  }
+pub fn update(model: Model, msg: Message) -> Model {
+    let mut m = model.clone();
+    match msg {
+        Message::Stop => { 
+            m.state = State::Stopped;
+        }
+        Message::Enter => {
+            m.view = View::Message("you pressed enter".to_string());
+        }
+        Message::Escape => { 
+            m.view = View::Message("you pressed escape".to_string());
+        }
+        Message::Code(c) => {
+            if let View::Text(x, y) = m.view {
+                match c {
+                    LEFT  => m.view = View::Text(x - 1, y),
+                    RIGHT => m.view = View::Text(x + 1, y), 
+                    UP    => m.view = View::Text(x, y - 1),
+                    DOWN  => m.view = View::Text(x, y + 1),
+                    _ => {}
+                }
+            } else {
+                m.view = View::Message(format!("you pressed {}", c)); 
+            }
+        }
+    }
+    m
+}
+pub fn handle_event(event: event::Event) -> Option<Message> {
+    let Event::Key(keyevent) = event 
+        else {return None};
+    match keyevent {
+        KeyEvent {
+            code: KeyCode::Char('c'),
+            kind: KeyEventKind::Press,
+            modifiers: KeyModifiers::CONTROL,
+            ..
+        } => {
+            Some(Message::Stop)
+        }
+        KeyEvent {
+            code: KeyCode::Enter,
+            kind: KeyEventKind::Press,
+            ..
+        } => {
+            Some(Message::Enter)
+        }
+        KeyEvent {
+            code: KeyCode::Esc,
+            kind: KeyEventKind::Press,
+            ..
+        } => {
+            Some(Message::Escape)
+        }
+        KeyEvent {
+            code: KeyCode::Char(c),
+            kind: KeyEventKind::Press,
+            ..
+        } => {
+            Some(Message::Code(c))
+        }
+        _ => None
+    }
+}
 
 //  fn follow_link(&mut self, link: &str) {
 //      let next_url = match &self.current {
@@ -174,114 +210,7 @@ impl Widget for &Model {
 //          },
 //          None => Url::parse(link).expect("Not a URL")
 //      };
-
 //      self.visit_url(&next_url)
-//  }
-
-
-
-//  pub fn update(model: Model, msg: Message) -> Model {
-//      let mut m = model.clone();
-//      match msg {
-//          Message::GoToUrl(url) => {
-//              visit_url(&mut m, url); m
-//          }
-//          Message::Stop => { 
-//              m.state = State::Stopped; m 
-//          }
-//          Message::Switch(view) => { 
-//              m.focus = view; m 
-//          }
-//          Message::Move(direction, steps) => {
-//              match direction {
-//                  Direction::Horizontal => {
-//                      match model.focus {
-//                          View::Content => { 
-//                             // m.content.move_horizontal(steps); 
-//                              m 
-//                          }
-//                          View::AddressBar => { 
-//                             // m.address_bar.move_horizontal(steps); 
-//                             m 
-//                          }
-//                          _ => {
-//                              model
-//                          }
-//                      }
-//                  }
-//                  Direction::Vertical => {
-//                      match model.focus {
-//                          View::Content => { 
-//                            //  m.content.move_vertical(steps); 
-//                              m 
-//                          _ => {
-//                              model
-//                          }
-//                      }
-//                  }
-//              }
-//          }
-//          Message::Edit(keycode) => {
-//              match model.focus {
-//                  View::AddressBar => { 
-//                     // m.address_bar.edit(keycode); 
-//                      m 
-//                  }
-//                  _ => {
-//                      model
-//                  }
-//              }
-//          }
-//      }
-//  }
-//  pub fn handle_event(model: &Model, event: event::Event) -> Option<Message> {
-//      let Event::Key(keyevent) = event else {return None};
-//      match keyevent {
-//          KeyEvent {
-//              code: KeyCode::Char('c'),
-//              kind: KeyEventKind::Press,
-//              modifiers: KeyModifiers::CONTROL,
-//              ..
-//          } => {
-//              Some(Message::Stop)
-//          }
-//          KeyEvent {
-//              code: KeyCode::Enter,
-//              kind: KeyEventKind::Press,
-//              ..
-//          } => {
-//              Some(Message::GoToUrl(model.next.clone()))
-//          }
-//          KeyEvent {
-//              code: KeyCode::Esc,
-//              kind: KeyEventKind::Press,
-//              ..
-//          } => {
-//              Some(Message::Switch(View::Content))
-//          }
-//          KeyEvent {
-//              code: KeyCode::Char(c),
-//              kind: KeyEventKind::Press,
-//              ..
-//          } => {
-//              match c {
-//                  util::DOWN if model.focus != View::AddressBar => {
-//                      Some(Message::Move(Direction::Vertical, -1))
-//                  }
-//                  util::UP if model.focus != View::AddressBar => {
-//                      Some(Message::Move(Direction::Vertical, 1))
-//                  }
-//                  util::LEFT if model.focus != View::AddressBar => {
-//                      Some(Message::Move(Direction::Horizontal, -1))
-//                  }
-//                  util::RIGHT if model.focus != View::AddressBar => {
-//                      Some(Message::Move(Direction::Horizontal, 1))
-//                  }
-//                  _ => None
-//              }
-//          }
-//          _ => None
-//      }
 //  }
 //  fn reload_page(model: &mut Model) {
 //      // Get current URL from history and revisit it without modifying history
@@ -319,10 +248,8 @@ impl Widget for &Model {
 //      };
 //      container.set_title(text);
 //  }
-
 //  fn follow_line(s: &mut Cursive, line: &str) {
 //      let parsed = json::parse(line);
-
 //      if let Ok(data) = parsed {
 //          if link::is_gemini(&data) {
 //              let current_url = history::get_current_url().unwrap();
@@ -336,7 +263,6 @@ impl Widget for &Model {
 //          }
 //      }
 //  }
-
 //  fn prompt_for_url(s: &mut Cursive) {
 //      s.add_layer(
 //          Dialog::new()
@@ -346,7 +272,6 @@ impl Widget for &Model {
 //              .with_name("url_popup"),
 //      );
 //  }
-
 //  fn prompt_for_answer(s: &mut Cursive, url: Url, message: String) {
 //      s.add_layer(
 //          Dialog::new()
@@ -364,7 +289,6 @@ impl Widget for &Model {
 //              .with_name("url_query"),
 //      );
 //  }
-
 //  fn prompt_for_secret_answer(s: &mut Cursive, url: Url, message: String) {
 //      s.add_layer(
 //          Dialog::new()
