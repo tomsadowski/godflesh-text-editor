@@ -1,5 +1,6 @@
 // gemtext
 
+// *** BEGIN IMPORTS ***
 use url::Url;
 use regex::Regex;
 use std::str::FromStr;
@@ -7,6 +8,7 @@ use crate::{
     util::{ParseError},
     constants,
 };
+// *** END IMPORTS ***
 
 #[derive(Clone, Debug)]
 pub struct GemTextDoc {
@@ -83,18 +85,23 @@ pub enum Link {
 impl FromStr for Link {
     type Err = ParseError;
     fn from_str(line: &str) -> Result<Link, ParseError> {
+
         // get regex
         let Ok(regex) = Regex::new(constants::LINK_REGEX)
             else {return Err(ParseError)};
+
         // get captures
         let Some(captures) = regex.captures(&line) 
             else {return Err(ParseError)};
+
         // get url
         let url_str = captures
             .get(1)
             .map_or("", |m| m.as_str())
             .to_string();
+
         let url_result = Url::parse(&url_str);
+
         // get label 
         let label_str = captures
             .get(2)
@@ -104,6 +111,7 @@ impl FromStr for Link {
         } else {
             label_str.to_string()
         };
+
         // return Result
         if let Ok(url) = url_result {
             match url.scheme() {

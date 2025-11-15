@@ -1,10 +1,12 @@
 // gemstatus
 
+// *** BEGIN IMPORTS ***
 use regex::Regex;
 use std::str::FromStr;
 use crate::{
     constants,
 };
+// *** END IMPORTS ***
 
 #[derive(Debug, Clone)]
 pub enum Input {
@@ -149,23 +151,28 @@ impl Status {
 impl FromStr for Status {
     type Err = String;
     fn from_str(line: &str) -> Result<Status, Self::Err> {
+
         // get regex
         let Ok(regex) = Regex::new(constants::STATUS_REGEX)
             else {return Err("".to_string())};
+
         // get captures
         let Some(captures) = regex.captures(&line) 
             else {return Err("".to_string())};
+
         // get code from captures
         let Ok(code) = captures
             .get(1)
             .map_or("", |m| m.as_str())
             .parse()
             else {return Err("".to_string())};
+
         // get meta from captures
         let meta = captures
             .get(2)
             .map_or("", |m| m.as_str())
             .to_string();
+
         // return Result
         let status = Status::new(code, meta)
             .or_else(|e| Err(e))?;

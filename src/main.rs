@@ -2,32 +2,31 @@
 #![allow(dead_code)]
 
 mod model;
+mod widget;
 mod gemtext;
 mod gemstatus;
 mod constants;
 mod util;
 
-//  use crate::model;
-//  use crate::util;
-//  use crate::gemini;
-
+// *** BEGIN IMPORTS ***
 use url::Url;
 use std::io::{
     self, 
     stdout
 };
-    use crossterm::event;
-    use ratatui::{
-        Terminal,
-        backend::CrosstermBackend, 
-        crossterm::{
-            ExecutableCommand,
-            terminal::{
-                disable_raw_mode, enable_raw_mode, 
-                EnterAlternateScreen, LeaveAlternateScreen,
-            },
+use crossterm::event;
+use ratatui::{
+    Terminal,
+    backend::CrosstermBackend, 
+    crossterm::{
+        ExecutableCommand,
+        terminal::{
+            disable_raw_mode, enable_raw_mode, 
+            EnterAlternateScreen, LeaveAlternateScreen,
         },
-    };
+    },
+};
+// *** END IMPORTS ***
 
 fn main() -> io::Result<()> {
 
