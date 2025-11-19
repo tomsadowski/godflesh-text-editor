@@ -1,16 +1,16 @@
 // main
 
 #![allow(unused_variables)]
-#![allow(unused_imports)]
 #![allow(dead_code)]
 
 mod model;
 mod display;
 mod gemtext;
 mod gemstatus;
-mod styles;
 mod constants;
 mod util;
+
+
 
 // *** BEGIN IMPORTS ***
 use url::Url;
@@ -20,21 +20,6 @@ use std::io::{
 };
 use crossterm::event;
 use ratatui::{
-    prelude::*, 
-    text::{
-        Line,
-        Span,
-        Text
-    },
-    style::{
-        Color, 
-        Style, 
-        Modifier,
-    },
-    widgets::{
-        Paragraph,
-        Wrap
-    },
     Terminal,
     backend::CrosstermBackend, 
     crossterm::{
@@ -47,11 +32,16 @@ use ratatui::{
         },
     },
 };
+use crate::display::{
+    LineStyles,
+    DisplayModel,
+};
 // *** END IMPORTS ***
 
 
-fn main() -> io::Result<()> {
 
+fn main() -> io::Result<()> 
+{
     // enter alternate screen
     enable_raw_mode()?;
     stdout().execute(EnterAlternateScreen)?;
@@ -61,19 +51,19 @@ fn main() -> io::Result<()> {
 
     let model = model::Model::init(&url);
 
-    let mut display = 
-        display::DisplayModel::new(&model, styles::LineStyles::new());
+    let mut display  = DisplayModel::new(&model, LineStyles::new());
 
     let mut terminal = Terminal::new(CrosstermBackend::new(stdout()))?;
 
     // main loop
-    while !display.source.quit {
-
+    while !display.source.quit 
+    {
         // display model
         terminal.draw(|f| f.render_widget(&display, f.area()))?;
 
         // update model with event message
-        if let Some(message) = model::handle_event(event::read()?) {
+        if let Some(message) = model::handle_event(event::read()?) 
+        {
             display.source = model::update(display.source, message);
         }
     }

@@ -1,5 +1,6 @@
 // constants
 
+
 // controls
 pub const LEFT: char             = 'e';
 pub const DOWN: char             = 'i';
@@ -7,8 +8,10 @@ pub const UP: char               = 'o';
 pub const RIGHT: char            = 'n';
 pub const URL: char              = 'g';
 
+
 // config
 pub const INIT_LINK: &str        = "gemini://geminiprotocol.net/";
+
 
 // protocol
 pub const GOPHER_SCHEME: &str    = "gopher";

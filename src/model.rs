@@ -1,5 +1,7 @@
 // model
 
+
+
 // *** BEGIN IMPORTS ***
 use url::Url;
 use std::str::FromStr;
@@ -23,29 +25,39 @@ use crossterm::{
 // *** END IMPORTS ***
 
 
+
 #[derive(Clone, Debug)]
-pub enum Message {
+pub enum Message 
+{
     Code(char),
     Enter,
     Escape,
     Stop,
 }
 
+
 #[derive(Clone, Debug)]
-pub enum Address {
+pub enum Address 
+{
     Url(Url), 
     String(String),
 }
 
+
 #[derive(Clone, Debug)]
-pub enum Dialog {
+pub enum Dialog 
+{
     AddressBar(Vec<u8>), 
     Prompt(String, Vec<u8>),
     Message(String),
 }
-impl Dialog {
-    pub fn init_from_response(status: Status) -> Option<Self> {
-        match status {
+
+impl Dialog 
+{
+    pub fn init_from_response(status: Status) -> Option<Self> 
+    {
+        match status 
+        {
             Status::InputExpected(variant, msg) => {
                 Some(
                     Self::Prompt(
@@ -93,13 +105,18 @@ impl Dialog {
     }
 }
 
+
 #[derive(Clone, Debug)]
-pub enum ModelText {
+pub enum ModelText 
+{
     GemText(Vec<GemTextLine>), 
     PlainText(Vec<String>),
 }
-impl ModelText {
-    pub fn plain_text(content: String) -> Self {
+
+impl ModelText 
+{
+    pub fn plain_text(content: String) -> Self 
+    {
         Self::PlainText(
             content
                 .lines()
@@ -107,38 +124,68 @@ impl ModelText {
                 .collect()
         )
     }
-    pub fn init_from_response(status: Status, content: String) -> Self {
-        match status {
-            Status::InputExpected(variant, msg) => {
+
+    pub fn init_from_response(status: Status, content: String) -> Self 
+    {
+        match status 
+        {
+            Status::InputExpected(variant, msg) => 
+            {
                 Self::plain_text(content)
             }
-            Status::Success(variant, meta) => {
-                if meta.starts_with("text/") {
-                    Self::GemText(GemTextLine::parse_doc(
-                            content.lines().collect()).unwrap())
+            Status::Success(variant, meta) => 
+            {
+                if meta.starts_with("text/") 
+                {
+                    Self::GemText(
+                        GemTextLine::parse_doc(
+                            content
+                                .lines()
+                                .collect()
+                        ).unwrap()
+                    )
                 } 
-                else {
+                else 
+                {
                     Self::plain_text(String::from("no text"))
                 }
             }
-            Status::TemporaryFailure(variant, meta) => {
-                Self::plain_text(format!("Temporary Failure {:?}: {:?}", variant, meta))
+            Status::TemporaryFailure(variant, meta) => 
+            {
+                Self::plain_text(
+                    format!(
+                        "Temporary Failure {:?}: {:?}", 
+                        variant, 
+                        meta
+                    )
+                )
             }
-            Status::PermanentFailure(variant, meta) => {
-                Self::plain_text(format!("Permanent Failure {:?}: {:?}", variant, meta))
+            Status::PermanentFailure(variant, meta) => 
+            {
+                Self::plain_text(
+                    format!(
+                        "Permanent Failure {:?}: {:?}", 
+                        variant, 
+                        meta
+                    )
+                )
             }
-            Status::Redirect(variant, new_url) => {
+            Status::Redirect(variant, new_url) => 
+            {
                 Self::plain_text(format!("Redirect to: {}?", new_url))
             }
-            Status::ClientCertificateRequired(variant, meta) => {
+            Status::ClientCertificateRequired(variant, meta) => 
+            {
                 Self::plain_text(format!("Certificate required: {}", meta))
             }
         }
     }
 }
 
+
 #[derive(Clone, Debug)]
-pub struct Model {
+pub struct Model 
+{
     pub dialog:  Option<Dialog>,
     pub address: Address,
     pub text:    ModelText,
@@ -146,11 +193,16 @@ pub struct Model {
     pub x:       u16,
     pub y:       u16,
 } 
-impl Model {
-    pub fn init(_url: &Option<Url>) -> Self {
+
+impl Model 
+{
+    pub fn init(_url: &Option<Url>) -> Self 
+    {
         // return now if no url provided
-        let Some(url) = _url else {
-            return Self {
+        let Some(url) = _url else 
+        {
+            return Self 
+            {
                 address: Address::String(String::from("")),
                 text:    ModelText::plain_text(String::from("welcome")),
                 dialog:  None,
@@ -159,9 +211,12 @@ impl Model {
                 y:       0,
             }
         };
+
         // return now if data retrieval fails
-        let Ok((header, content)) = util::get_data(&url) else {
-            return Self {
+        let Ok((header, content)) = util::get_data(&url) else 
+        {
+            return Self 
+            {
                 address: Address::Url(url.clone()),
                 text:    ModelText::plain_text(String::from("data retrieval failed")),
                 dialog:  None,
@@ -170,9 +225,12 @@ impl Model {
                 y:       0,
             }
         };
+
         // return now if status parsing fails
-        let Ok(status) = Status::from_str(&header) else {
-            return Self {
+        let Ok(status) = Status::from_str(&header) else 
+        {
+            return Self 
+            {
                 address: Address::Url(url.clone()),
                 text:    ModelText::plain_text(String::from("could not parse status")),
                 dialog:  None,
@@ -181,8 +239,10 @@ impl Model {
                 y:       0,
             }
         };
+
         // return model
-        Self {
+        Self 
+        {
             address: Address::Url(url.clone()),
             text:    ModelText::init_from_response(status.clone(), content),
             dialog:  Dialog::init_from_response(status),
@@ -193,9 +253,12 @@ impl Model {
     }
 } 
 
-pub fn update(model: Model, msg: Message) -> Model {
+
+pub fn update(model: Model, msg: Message) -> Model 
+{
     let mut m = model.clone();
-    match msg {
+    match msg 
+    {
         Message::Stop => { 
             m.quit = true;
         }
@@ -206,15 +269,19 @@ pub fn update(model: Model, msg: Message) -> Model {
             m.dialog = None;
         }
         Message::Code(c) => {
-            if let None = m.dialog {
-                match c {
+            if let None = m.dialog 
+            {
+                match c 
+                {
                     constants::LEFT  => {
-                        if m.x > 0 { 
+                        if m.x > 0 
+                        { 
                             m.x = m.x - 1;
                         }
                     }
                     constants::UP    => {
-                        if m.y > 0 { 
+                        if m.y > 0 
+                        { 
                             m.y = m.y - 1;
                         }
                     }
@@ -227,45 +294,60 @@ pub fn update(model: Model, msg: Message) -> Model {
                     _ => {}
                 }
             } 
-            else {
+            else 
+            {
                 m.dialog = Some(Dialog::Message(format!("you pressed {}", c))); 
             }
         }
     }
+    // return Model
     m
 }
 
-pub fn handle_event(event: event::Event) -> Option<Message> {
+
+pub fn handle_event(event: event::Event) -> Option<Message> 
+{
+    // return now if not key event
     let Event::Key(keyevent) = event 
         else {return None};
-    match keyevent {
-        KeyEvent {
+
+    match keyevent 
+    {
+        KeyEvent 
+        {
             code: KeyCode::Char('c'),
             kind: KeyEventKind::Press,
             modifiers: KeyModifiers::CONTROL,
             ..
-        } => {
+        } => 
+        {
             Some(Message::Stop)
         }
-        KeyEvent {
+        KeyEvent 
+        {
             code: KeyCode::Enter,
             kind: KeyEventKind::Press,
             ..
-        } => {
+        } => 
+        {
             Some(Message::Enter)
         }
-        KeyEvent {
+        KeyEvent 
+        {
             code: KeyCode::Esc,
             kind: KeyEventKind::Press,
             ..
-        } => {
+        } => 
+        {
             Some(Message::Escape)
         }
-        KeyEvent {
+        KeyEvent 
+        {
             code: KeyCode::Char(c),
             kind: KeyEventKind::Press,
             ..
-        } => {
+        } => 
+        {
             Some(Message::Code(c))
         }
         _ => None
