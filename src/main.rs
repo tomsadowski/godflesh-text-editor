@@ -4,7 +4,6 @@
 #![allow(dead_code)]
 
 mod model;
-mod display;
 mod gemtext;
 mod gemstatus;
 mod constants;
@@ -32,10 +31,6 @@ use ratatui::{
         },
     },
 };
-use crate::display::{
-    LineStyles,
-    DisplayModel,
-};
 // *** END IMPORTS ***
 
 
@@ -49,22 +44,20 @@ fn main() -> io::Result<()>
     // data init
     let url = Url::parse(constants::INIT_LINK).ok();
 
-    let model = model::Model::init(&url);
-
-    let mut display  = DisplayModel::new(&model, LineStyles::new());
+    let mut model = model::Model::init(&url);
 
     let mut terminal = Terminal::new(CrosstermBackend::new(stdout()))?;
 
     // main loop
-    while !display.source.quit 
+    while !model.quit 
     {
         // display model
-        terminal.draw(|f| f.render_widget(&display, f.area()))?;
+        terminal.draw(|f| f.render_widget(&model, f.area()))?;
 
         // update model with event message
         if let Some(message) = model::handle_event(event::read()?) 
         {
-            display.source = model::update(display.source, message);
+            model = model::update(model, message);
         }
     }
 
