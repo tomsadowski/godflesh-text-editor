@@ -60,19 +60,21 @@ impl LineStyles
     pub fn new() -> Self 
     {
         let heading_one_style = Style::new()
-                .fg(Color::Rgb(160, 192, 112))
-                .bg(Color::Rgb(  0,   0,   0));
+                .fg(Color::Rgb(112, 160, 192))
+                .bg(Color::Rgb( 24,  24,  48))
+                .add_modifier(Modifier::BOLD);
 
         let heading_two_style = Style::new()
-                .fg(Color::Rgb(160, 192, 112))
-                .bg(Color::Rgb(  0,   0,   0));
+                .fg(Color::Rgb(112, 160, 192))
+                .bg(Color::Rgb(  0,   0,   0))
+                .add_modifier(Modifier::BOLD);
 
         let heading_three_style = Style::new()
-                .fg(Color::Rgb(160, 192, 112))
+                .fg(Color::Rgb(112, 160, 192))
                 .bg(Color::Rgb(  0,   0,   0));
 
         let link_style = Style::new()
-                .fg(Color::Rgb(160, 192, 112))
+                .fg(Color::Rgb(192, 112, 160))
                 .bg(Color::Rgb(  0,   0,   0));
 
         let text_style = Style::new()
@@ -368,7 +370,7 @@ impl<'a> ModelText<'a>
                 } 
                 else 
                 {
-                    Self::plain_text("no text".to_string(), &styles)
+                    Self::plain_text(format!("no text"), &styles)
                 }
             }
             Status::TemporaryFailure(variant, meta) => 
