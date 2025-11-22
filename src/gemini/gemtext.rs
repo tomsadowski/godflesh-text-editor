@@ -30,11 +30,11 @@ impl Link
     {
         match self 
         {
-            Self::Gemini(url, text)      => text,
-            Self::Gopher(url, text)      => text,
-            Self::Http(url, text)        => text,
-            Self::Relative(text1, text2) => text2,
-            Self::Unknown(url, text)     => text,
+            Self::Gemini(_url, text)      => text,
+            Self::Gopher(_url, text)      => text,
+            Self::Http(_url, text)        => text,
+            Self::Relative(_text1, text2) => text2,
+            Self::Unknown(_url, text)     => text,
         }
     }
 }
@@ -134,8 +134,7 @@ impl GemTextLine
 
         let mut preformat_flag = Self::is_toggle(first_line);
 
-        if !preformat_flag 
-        {
+        if !preformat_flag {
             // return error if cannot parse formatted line
             let formatted = Self::parse_formatted(first_line)
                 .or_else(
@@ -147,16 +146,13 @@ impl GemTextLine
         // parse remaining lines
         for line in lines_iter 
         {
-            if Self::is_toggle(line) 
-            {
+            if Self::is_toggle(line) {
                 preformat_flag = !preformat_flag;
             } 
-            else if preformat_flag 
-            {
+            else if preformat_flag {
                 vec.push(Self::PreFormat(line.to_string()));
             }
-            else 
-            {
+            else {
                 let formatted = Self::parse_formatted(line)
                     .or_else(|e| Err(format!("{}", e)))?;
                 vec.push(formatted);
@@ -168,10 +164,8 @@ impl GemTextLine
 
     fn is_toggle(line: &str) -> bool 
     {
-        if let Some((symbol, text)) = line.split_at_checked(3) 
-        {
-            if symbol == constants::TOGGLE_SYMBOL 
-            {
+        if let Some((symbol, _text)) = line.split_at_checked(3) {
+            if symbol == constants::TOGGLE_SYMBOL {
                 return true
             }
         }
@@ -181,45 +175,35 @@ impl GemTextLine
     fn parse_formatted(line: &str) -> Result<GemTextLine, String> 
     {
         // look for 3 character symbols
-        if let Some((symbol, text)) = line.split_at_checked(3) 
-        {
-            if symbol == constants::HEADING_3_SYMBOL 
-            {
+        if let Some((symbol, text)) = line.split_at_checked(3) {
+            if symbol == constants::HEADING_3_SYMBOL {
                 return Ok(GemTextLine::HeadingThree(text.to_string()))
             }
         }
 
         // look for 2 character symbols
-        if let Some((symbol, text)) = line.split_at_checked(2) 
-        {
-            if symbol == constants::LINK_SYMBOL 
-            {
+        if let Some((symbol, text)) = line.split_at_checked(2) {
+            if symbol == constants::LINK_SYMBOL {
                 let link = Link::from_str(text)
                     .or_else(
                         |e| Err(format!("could not parse link {:?}", e))
                     )?;
-
                 return Ok(GemTextLine::Link(link))
             }
-            if symbol == constants::HEADING_2_SYMBOL 
-            {
+            if symbol == constants::HEADING_2_SYMBOL {
                 return Ok(GemTextLine::HeadingTwo(text.to_string()))
             }
         }
 
         // look for 1 character symbols
-        if let Some((symbol, text)) = line.split_at_checked(1) 
-        {
-            if symbol == constants::QUOTE_SYMBOL 
-            {
+        if let Some((symbol, text)) = line.split_at_checked(1) {
+            if symbol == constants::QUOTE_SYMBOL {
                 return Ok(GemTextLine::Quote(text.to_string()))
             }
-            if symbol == constants::LIST_ITEM_SYMBOL 
-            {
+            if symbol == constants::LIST_ITEM_SYMBOL {
                 return Ok(GemTextLine::ListItem(text.to_string()))
             }
-            if symbol == constants::HEADING_1_SYMBOL 
-            {
+            if symbol == constants::HEADING_1_SYMBOL {
                 return Ok(GemTextLine::HeadingOne(text.to_string()))
             }
         }
