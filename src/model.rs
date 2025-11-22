@@ -7,7 +7,6 @@ use url::Url;
 use std::str::FromStr;
 use crate::{
     util, 
-    constants,
     gemstatus::Status,
     gemtext::{
         GemTextLine,
@@ -28,15 +27,6 @@ use ratatui::{
         Paragraph,
         Wrap
     },
-};
-use crossterm::{
-    event::{
-        self, 
-        KeyModifiers, 
-        KeyEvent, 
-        Event, 
-        KeyEventKind, 
-        KeyCode},
 };
 // *** END IMPORTS ***
 
@@ -109,6 +99,7 @@ impl LineStyles
 pub enum Message 
 {
     Code(char),
+    Resize(u16, u16),
     Enter,
     Escape,
     Stop,
@@ -310,14 +301,15 @@ impl<'a> ModelTextType<'a>
 #[derive(Clone, Debug)]
 pub struct ModelText<'a>
 {
-    pub text:    ModelTextType<'a>,
-    pub styles:  LineStyles,
-    pub x:       u16,
-    pub y:       u16,
+    pub text:   ModelTextType<'a>,
+    pub styles: LineStyles,
+    pub size:   Size,
+    pub cursor: Position,
+    pub scroll: Position,
 }
 impl<'a> ModelText<'a> 
 {
-    pub fn plain_text(content: String, styles: &LineStyles) -> Self 
+    pub fn plain_text(content: String, size: Size, styles: &LineStyles) -> Self 
     {
         let vec = content
                 .lines()
@@ -331,27 +323,21 @@ impl<'a> ModelText<'a>
         {
             text: text,
             styles: styles.clone(),
-            x: 0,
-            y: 0
+            size:   size,
+            cursor: Position::new(0, 0),
+            scroll: Position::new(0, 0),
         }
     }
 
     pub fn init_from_response(status:  Status, 
                               content: String,
+                              size:    Size,
                               styles:  &LineStyles) -> Self
     {
-        match status 
-        {
-            Status::InputExpected(variant, msg) => 
-            {
-                Self::plain_text(content, &styles)
-            }
-            Status::Success(variant, meta) => 
-            {
-                if meta.starts_with("text/") 
-                {
-                    Self
-                    {
+        match status {
+            Status::Success(variant, meta) => {
+                if meta.starts_with("text/") {
+                    Self {
                         text: ModelTextType::GemText(
                                 GemTextLine::parse_doc(
                                     content
@@ -364,40 +350,75 @@ impl<'a> ModelText<'a>
                                 .collect()
                             ),
                             styles: styles.clone(),
-                            x: 0,
-                            y: 0,
+                            size:   size,
+                            cursor: Position::new(0, 0),
+                            scroll: Position::new(0, 0),
                     }
                 } 
-                else 
-                {
-                    Self::plain_text(format!("no text"), &styles)
+                else {
+                    Self::plain_text(format!("no text"), size, &styles)
                 }
             }
-            Status::TemporaryFailure(variant, meta) => 
-            {
+            Status::InputExpected(variant, msg) => {
+                Self::plain_text(content, size, &styles)
+            }
+            Status::TemporaryFailure(variant, meta) => {
                 Self::plain_text(
                     format!("Temporary Failure {:?}: {:?}", variant, meta), 
+                    size,
                     &styles)
             }
-            Status::PermanentFailure(variant, meta) => 
-            {
+            Status::PermanentFailure(variant, meta) => {
                 Self::plain_text(
                     format!("Permanent Failure {:?}: {:?}", variant, meta), 
+                    size,
                     &styles)
             }
-            Status::Redirect(variant, new_url) => 
-            {
+            Status::Redirect(variant, new_url) => {
                 Self::plain_text(
                     format!("Redirect to: {}?", new_url), 
+                    size,
                     &styles)
             }
-            Status::ClientCertRequired(variant, meta) => 
-            {
+            Status::ClientCertRequired(variant, meta) => {
                 Self::plain_text(
                     format!("Certificate required: {}", meta), 
+                    size,
                     &styles)
             }
         }
+    }
+
+    pub fn move_cursor_up(&mut self) 
+    {
+        if self.cursor.y > 0 { 
+            self.cursor.y -= 1;
+        }
+        else if self.scroll.y > 0 {
+            self.scroll.y -= 1;
+        }
+    }
+
+    pub fn move_cursor_down(&mut self) 
+    {
+        if self.cursor.y < self.size.height {
+            self.cursor.y += 1;
+        }
+        else {
+            self.scroll.y += 1;
+        }
+    }
+
+    pub fn move_cursor_left(&mut self) 
+    {
+        if self.cursor.x > 0 { 
+            self.cursor.x -= 1;
+        }
+    }
+
+    pub fn move_cursor_right(&mut self) 
+    {
+        self.cursor.x += 1;
     }
 }
 impl<'a> Widget for &ModelText<'a> 
@@ -406,7 +427,7 @@ impl<'a> Widget for &ModelText<'a>
     {
         Paragraph::new(self.text.get_lines())
             .wrap(Wrap { trim: true })
-            .scroll((self.y, self.x))
+            .scroll((self.scroll.y, self.scroll.x))
             .render(area, buf);
     }
 }
@@ -423,15 +444,17 @@ pub struct Model<'a>
 } 
 impl<'a> Model<'a>
 {
-    pub fn init(_url: &Option<Url>) -> Self 
+    pub fn init(_url: &Option<Url>, size: Size) -> Self 
     {
         let styles = LineStyles::new();
 
         // return now if no url provided
         let Some(url) = _url else 
         {
-            let text = ModelText::plain_text(
+            let text = 
+                ModelText::plain_text(
                     format!("\twelcome\n\twelcome\n\twelcome"), 
+                    size, 
                     &styles);
 
             return Self 
@@ -448,8 +471,10 @@ impl<'a> Model<'a>
         // return now if data retrieval fails
         let Ok((header, content)) = util::get_data(&url) else 
         {
-            let text = ModelText::plain_text(
+            let text = 
+                ModelText::plain_text(
                     format!("\n\tdata\n\tretrieval\n\tfailed"), 
+                    size, 
                     &styles);
 
             return Self 
@@ -462,14 +487,14 @@ impl<'a> Model<'a>
         };
 
         // return now if status parsing fails
-        let Ok(status) = Status::from_str(&header) else 
-        {
-            let text = ModelText::plain_text(
+        let Ok(status) = Status::from_str(&header) else {
+            let text = 
+                ModelText::plain_text(
                     format!("could not parse status"), 
+                    size, 
                     &styles);
 
-            return Self 
-            {
+            return Self {
                 address: address,
                 text:    text,
                 dialog:  None,
@@ -478,18 +503,25 @@ impl<'a> Model<'a>
         };
 
         let text = 
-            ModelText::init_from_response(status.clone(), content, &styles);
+            ModelText::init_from_response(
+                status.clone(), 
+                content, 
+                size, 
+                &styles);
 
-        let dialog = 
-            Dialog::init_from_response(status);
+        let dialog = Dialog::init_from_response(status);
 
-        Self 
-        {
+        Self {
             address: address,
             text:    text,
             dialog:  dialog,
             quit:    false,
         }
+    }
+    
+    pub fn get_cursor_position(self) -> Position 
+    {
+        self.text.cursor
     }
 } 
 impl<'a> Widget for &Model<'a> 
@@ -497,115 +529,6 @@ impl<'a> Widget for &Model<'a>
     fn render(self, area: Rect, buf: &mut Buffer) 
     {
         self.text.render(area, buf);
-    }
-}
-
-
-pub fn update(model: Model, msg: Message) -> Model 
-{
-    let mut m = model.clone();
-    match msg 
-    {
-        Message::Stop => 
-        { 
-            m.quit = true;
-        }
-        Message::Enter => 
-        {
-            m.dialog = None;
-        }
-        Message::Escape => 
-        { 
-            m.dialog = None;
-        }
-        Message::Code(c) => 
-        {
-            if let None = m.dialog 
-            {
-                match c 
-                {
-                    constants::LEFT => 
-                    {
-                        if m.text.x > 0 
-                        { 
-                            m.text.x = m.text.x - 1;
-                        }
-                    }
-                    constants::UP => 
-                    {
-                        if m.text.y > 0 
-                        { 
-                            m.text.y = m.text.y - 1;
-                        }
-                    }
-                    constants::RIGHT => 
-                    {
-                        m.text.x = m.text.x + 1;
-                    }
-                    constants::DOWN => 
-                    {
-                        m.text.y = m.text.y + 1;
-                    }
-                    _ => {}
-                }
-            } 
-            else 
-            {
-                m.dialog = Some(Dialog::Message(format!("you pressed {}", c))); 
-            }
-        }
-    }
-    // return Model
-    m
-}
-
-
-pub fn handle_event(event: event::Event) -> Option<Message> 
-{
-    // return now if not key event
-    let Event::Key(keyevent) = event 
-        else {return None};
-
-    match keyevent 
-    {
-        KeyEvent 
-        {
-            code: KeyCode::Char('c'),
-            kind: KeyEventKind::Press,
-            modifiers: KeyModifiers::CONTROL,
-            ..
-        } => 
-        {
-            Some(Message::Stop)
-        }
-        KeyEvent 
-        {
-            code: KeyCode::Enter,
-            kind: KeyEventKind::Press,
-            ..
-        } => 
-        {
-            Some(Message::Enter)
-        }
-        KeyEvent 
-        {
-            code: KeyCode::Esc,
-            kind: KeyEventKind::Press,
-            ..
-        } => 
-        {
-            Some(Message::Escape)
-        }
-        KeyEvent 
-        {
-            code: KeyCode::Char(c),
-            kind: KeyEventKind::Press,
-            ..
-        } => 
-        {
-            Some(Message::Code(c))
-        }
-        _ => None
     }
 }
 
