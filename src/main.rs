@@ -14,7 +14,10 @@ use std::io::{
     stdout
 };
 use crate::view::{
-    model::Model, 
+    model::{
+        self,
+        Model,
+    } 
 };
 use crossterm::{
     event::{
@@ -45,7 +48,7 @@ fn main() -> io::Result<()>
     stdout().execute(EnterAlternateScreen)?;
 
     // data init
-    let url          = Url::parse(constants::INIT_LINK).ok();
+    let     url      = Url::parse(constants::INIT_LINK).ok();
     let mut terminal = Terminal::new(CrosstermBackend::new(stdout()))?;
     let mut model    = Model::init(&url, terminal.size()?);
 
@@ -59,8 +62,8 @@ fn main() -> io::Result<()>
             (model.text.cursor.x, model.text.cursor.y))?;
 
         // update model with event message
-        if let Some(message) = view::handle_event(event::read()?) {
-            model = view::update(model, message);
+        if let Some(message) = model::handle_event(event::read()?) {
+            model = model::update(model, message);
         }
     }
 

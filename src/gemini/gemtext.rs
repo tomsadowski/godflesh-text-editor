@@ -15,8 +15,7 @@ use crate::{
 
 
 #[derive(Clone, PartialEq, Debug)]
-pub enum Link 
-{
+pub enum Link {
     Gemini(Url, String),
     Gopher(Url, String),
     Http(Url, String),
@@ -66,12 +65,10 @@ impl FromStr for Link
             .get(2)
             .map_or("", |m| m.as_str());
 
-        let label = if label_str.is_empty() 
-        {
+        let label = if label_str.is_empty() {
             url_str.clone()
         } 
-        else 
-        {
+        else {
             label_str.to_string()
         };
 

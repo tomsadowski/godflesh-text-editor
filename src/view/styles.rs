@@ -17,48 +17,48 @@ use ratatui::{
 #[derive(Clone, Debug)]
 pub struct LineStyles 
 {
-    pub heading_one: Style,
-    pub heading_two: Style,
+    pub heading_one:   Style,
+    pub heading_two:   Style,
     pub heading_three: Style,
-    pub link: Style,
-    pub list_item: Style,
-    pub quote: Style,
-    pub preformat: Style,
-    pub text: Style,
-    pub plaintext: Style,
+    pub link:          Style,
+    pub list_item:     Style,
+    pub quote:         Style,
+    pub preformat:     Style,
+    pub text:          Style,
+    pub plaintext:     Style,
 }
 impl LineStyles 
 {
     pub fn new() -> Self 
     {
         let heading_one_style = Style::new()
-                .fg(Color::Rgb(112, 160, 192))
-                .bg(Color::Rgb( 24,  24,  48))
+                .fg(Color::Rgb(208,  96,  96))
+                .bg(Color::Rgb( 48,  24,  24))
                 .add_modifier(Modifier::BOLD);
 
         let heading_two_style = Style::new()
-                .fg(Color::Rgb(112, 160, 192))
+                .fg(Color::Rgb(208,  96,  96))
                 .bg(Color::Rgb(  0,   0,   0))
                 .add_modifier(Modifier::BOLD);
 
         let heading_three_style = Style::new()
-                .fg(Color::Rgb(112, 160, 192))
+                .fg(Color::Rgb(208,  96,  96))
                 .bg(Color::Rgb(  0,   0,   0));
 
         let link_style = Style::new()
-                .fg(Color::Rgb(192, 112, 160))
+                .fg(Color::Rgb(176,  96, 192))
                 .bg(Color::Rgb(  0,   0,   0));
 
         let text_style = Style::new()
-                .fg(Color::Rgb(160, 192, 112))
+                .fg(Color::Rgb(192, 192, 144))
                 .bg(Color::Rgb(  0,   0,   0));
 
         let list_style = Style::new()
-                .fg(Color::Rgb(160, 192, 112))
+                .fg(Color::Rgb(192, 192, 144))
                 .bg(Color::Rgb(  0,   0,   0));
 
         let quote_style = Style::new()
-                .fg(Color::Rgb(160, 192, 112))
+                .fg(Color::Rgb(192, 192, 144))
                 .bg(Color::Rgb(  0,   0,   0));
 
         Self {

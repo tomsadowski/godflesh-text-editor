@@ -48,7 +48,8 @@ pub fn get_data(url: &url::Url) -> Result<(String, String), String>
         };
 
     // get tcp stream from socket address
-    let tcpstream = TcpStream::connect_timeout(&socket_addr, Duration::new(10, 0))
+    let tcpstream = TcpStream::connect_timeout
+        (&socket_addr, Duration::new(10, 0))
         .or_else(
             |e| Err(format!("Could not connect to {}\n{}", urlf, e))
         )?;

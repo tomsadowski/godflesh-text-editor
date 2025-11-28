@@ -3,23 +3,56 @@
 
 
 // *** BEGIN IMPORTS ***
+use url::Url;
 use crate::{
     gemini::status::Status,
+};
+use ratatui::{
+    prelude::*, 
+    widgets::{
+        Paragraph,
+        Wrap,
+    },
 };
 // *** END IMPORTS ***
 
 
 
 #[derive(Clone, Debug)]
-pub enum Dialog 
+pub enum Action
 {
-    AddressBar(Vec<u8>), 
-    Prompt(String, Vec<u8>),
-    Confirmation(String),
-    Acknowledge(String),
+    FollowLink(Url),
+    Download,
+    Acknowledge,
 }
-impl Dialog 
+#[derive(Clone, Debug)]
+pub struct Dialog {
+    pub action: Action,
+    pub text:   String,
+}
+impl Dialog
 {
+    pub fn download(str: String) -> Self 
+    {
+        Self { 
+            action: Action::Download, 
+            text: format!("Download nontext type: {}?", str)
+        }
+    }
+    pub fn acknowledge(str: String) -> Self 
+    {
+        Self { 
+            action: Action::Acknowledge, 
+            text: format!("{}?", str)
+        }
+    }
+    pub fn follow_link(url: Url) -> Self 
+    {
+        Self { 
+            action: Action::FollowLink(url.clone()), 
+            text: format!("Go to {}?", String::from(url))
+        }
+    }
     pub fn init_from_response(status: Status) -> Option<Self> 
     {
         match status 
@@ -29,13 +62,12 @@ impl Dialog
                     None
                 } 
                 else {
-                    let text = format!("Download nontext type: {}?", meta);
-                    Some(Self::Confirmation(text))
+                    Some(Self::download(meta))
                 }
             }
             Status::InputExpected(_variant, msg) => {
                 let text = format!("input: {}", msg);
-                Some(Self::Prompt(text, vec![]))
+                Some(Self::acknowledge(text))
             }
             Status::TemporaryFailure(_variant, _meta) => {
                 None
@@ -44,13 +76,23 @@ impl Dialog
                 None
             }
             Status::Redirect(_variant, new_url) => {
-                let text = format!("Redirect to: {}?", new_url);
-                Some(Self::Confirmation(text))
+                Some(Self::follow_link(new_url))
             }
             Status::ClientCertRequired(_variant, meta) => {
                 let text = format!("Certificate required: {}", meta);
-                Some(Self::Prompt(text, vec![]))
+                Some(Self::acknowledge(text))
             }
         }
+    }
+
+}
+impl Widget for &Dialog
+{
+    fn render(self, area: Rect, buf: &mut Buffer) 
+    {
+        Paragraph::new(self.text.clone())
+            .wrap(Wrap { trim: true })
+            .render(area, buf);
+
     }
 }

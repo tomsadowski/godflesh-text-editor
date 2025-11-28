@@ -46,9 +46,6 @@ impl<'a> GemTextSpan<'a>
     {
         let span = match text.clone() 
         {
-            GemTextLine::Text(s) => {
-                Span::from(s).style(styles.text)
-            }
             GemTextLine::HeadingOne(s) => {
                 Span::from(s).style(styles.heading_one)
             }
@@ -57,6 +54,9 @@ impl<'a> GemTextSpan<'a>
             }
             GemTextLine::HeadingThree(s) => {
                 Span::from(s).style(styles.heading_three)
+            }
+            GemTextLine::Text(s) => {
+                Span::from(s).style(styles.text)
             }
             GemTextLine::Link(link) => {
                 Span::from(link.get_text()).style(styles.link)
@@ -88,7 +88,6 @@ impl<'a> GemTextSpan<'a>
 
 
 
-// Implements Widget by parsing ModelText onto a Vec of Spans
 #[derive(Clone, Debug)]
 pub struct PlainTextSpan<'a> 
 {
@@ -140,6 +139,7 @@ impl<'a> ModelTextType<'a>
             }
         }
     }
+
     pub fn get_gemtext_at(&'a self, idx: usize) -> Result<GemTextLine, String> 
     {
         match &self {
@@ -170,7 +170,7 @@ impl<'a> ModelTextType<'a>
     }
 }
 
-
+// the model's main viewport
 #[derive(Clone, Debug)]
 pub struct ModelText<'a>
 {
@@ -223,6 +223,14 @@ impl<'a> ModelText<'a>
             scroll:  Position::new(0, 0),
             vec_idx: 0,
         }
+    }
+
+    pub fn update_from_response(self, status: Status, content: String) -> Self
+    {
+        let size   = self.size;
+        let styles = self.styles;
+
+        Self::init_from_response(status, content, size, &styles)
     }
 
     pub fn init_from_response(status:  Status, 
