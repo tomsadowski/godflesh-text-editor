@@ -1,36 +1,21 @@
 // update
 
-
-
-// *** BEGIN IMPORTS ***
-use std::str::FromStr;
 use crate::{
-    view::msg::Message,
-    view::model::Model,
     util, 
     constants,
-    view::{
-        dialog::{
-            Dialog,
-            Action,
-        },
-    },
-    gemini::{
-        status::{
-            Status,
-        },
-        gemtext::{
-            GemTextLine,
-            Link,
-        },
-    },
+    msg::Message,
+    view::model::Model,
+    view::dialog::Dialog,
+    view::dialog::Action,
+    gemini::status::Status,
+    gemini::gemtext::GemTextLine,
+    gemini::gemtext::GemTextData,
+    gemini::gemtext::Scheme,
 };
-use ratatui::{
-    prelude::*, 
-};
-// *** END IMPORTS ***
+use ratatui::prelude::Size;
 
 
+// return new model based on old model and message
 pub fn update(model: Model, msg: Message) -> Model 
 {
     let mut m = model.clone();
@@ -77,12 +62,14 @@ pub fn update(model: Model, msg: Message) -> Model
     // return Model
     m
 }
+
 pub fn query_gemtext_line(text: GemTextLine) -> Option<Dialog>
 {
     match text {
-        GemTextLine::Link(
-            Link::Gemini(url, _text)
-        ) => {
+        GemTextLine {
+            data: GemTextData::Link(Scheme::Gemini(url)),
+            ..
+        } => {
             Some(Dialog::follow_link(url))
         }
         g => {
@@ -90,13 +77,18 @@ pub fn query_gemtext_line(text: GemTextLine) -> Option<Dialog>
         }
     }
 }
+
 pub fn respond_to_dialog(model: Model, dialog: Dialog) -> Model
 {
     let mut m = model.clone();
-    match dialog.action {
-        Action::FollowLink(url) => {
-            if let Ok((header, content)) = util::get_data(&url) {
-                if let Ok(status) = Status::from_str(&header) {
+    match dialog.action 
+    {
+        Action::FollowLink(url) => 
+        {
+            if let Ok((header, content)) = util::get_data(&url) 
+            {
+                if let Ok(status) = Status::from_str(&header) 
+                {
                     m.text = m.text.update_from_response(status, content);
                 }
             }

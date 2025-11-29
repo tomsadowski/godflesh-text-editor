@@ -1,25 +1,18 @@
 // util
 
-
-
-// *** BEGIN IMPORTS ***
-use native_tls::TlsConnector;
-use std::time::Duration;
-use tempfile::NamedTempFile;
-use std::io::{
-    Read, 
-    Write
+use std::{
+    time::Duration,
+    io::Read, 
+    io::Write,
 };
 use std::net::{
     TcpStream, 
     ToSocketAddrs
 };
-// *** END IMPORTS ***
+use native_tls::TlsConnector;
+use tempfile::NamedTempFile;
 
 
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub struct ParseError;
 
 pub fn get_data(url: &url::Url) -> Result<(String, String), String> 
 {

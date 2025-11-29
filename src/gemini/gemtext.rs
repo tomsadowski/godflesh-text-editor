@@ -1,63 +1,57 @@
 // gemtext
 
-
-
-// *** BEGIN IMPORTS ***
 use url::Url;
 use regex::Regex;
-use std::str::FromStr;
-use crate::{
-    util::ParseError,
-    constants,
-};
-// *** END IMPORTS ***
+use crate::constants;
 
 
 
 #[derive(Clone, PartialEq, Debug)]
-pub enum Link {
-    Gemini(Url, String),
-    Gopher(Url, String),
-    Http(Url, String),
-    Relative(String, String),
-    Unknown(Url, String),
+pub enum Scheme {
+    Gemini(Url),
+    Gopher(Url),
+    Http(Url),
+    Relative(String),
+    Unknown(Url),
 }
-
-impl Link 
+#[derive(Clone, PartialEq, Debug)]
+pub enum GemTextData
 {
-    pub fn get_text(self) -> String 
-    {
-        match self 
-        {
-            Self::Gemini(_url, text)      => text,
-            Self::Gopher(_url, text)      => text,
-            Self::Http(_url, text)        => text,
-            Self::Relative(_text1, text2) => text2,
-            Self::Unknown(_url, text)     => text,
-        }
-    }
-}
-
-impl FromStr for Link 
+    HeadingOne,
+    HeadingTwo,
+    HeadingThree,
+    Text, 
+    PreFormat,
+    Link(Scheme),
+    ListItem,
+    Quote,
+} 
+#[derive(Clone, PartialEq, Debug)]
+pub struct GemTextLine
 {
-    type Err = ParseError;
+    pub data: GemTextData,
+    pub text: String,
+} 
 
-    fn from_str(line: &str) -> Result<Link, ParseError> 
+impl Scheme
+{
+    fn from_str(line: &str) -> Result<(Scheme, String), String> 
     {
         // get regex
         let Ok(regex) = Regex::new(constants::LINK_REGEX)
-            else {return Err(ParseError)};
+            else {return Err(format!("regex: no parse"))};
 
         // get captures
         let Some(captures) = regex.captures(&line) 
-            else {return Err(ParseError)};
+            else {return Err(format!("regex: no captures"))};
 
-        // get url
+        // get string
         let url_str = captures
             .get(1)
             .map_or("", |m| m.as_str())
             .to_string();
 
+        // get result
         let url_result = Url::parse(&url_str);
 
         // get label 
@@ -65,64 +59,41 @@ impl FromStr for Link
             .get(2)
             .map_or("", |m| m.as_str());
 
-        let label = if label_str.is_empty() {
-            url_str.clone()
-        } 
-        else {
-            label_str.to_string()
-        };
+        let label = 
+            if label_str.is_empty() {
+                url_str.clone()
+            } 
+            else {
+                label_str.to_string()
+            };
 
         // return Result
-        if let Ok(url) = url_result 
-        {
-            match url.scheme() 
-            {
-                constants::GEMINI_SCHEME => 
-                    return Ok(Link::Gemini(url, label)),
-
-                constants::GOPHER_SCHEME => 
-                    return Ok(Link::Gopher(url, label)),
-
-                constants::HTTP_SCHEME => 
-                    return Ok(Link::Http(url, label)),
-
-                constants::HTTPS_SCHEME => 
-                    return Ok(Link::Http(url, label)),
-
-                _ => 
-                    return Ok(Link::Unknown(url, label)),
+        if let Ok(url) = url_result {
+            let scheme = match url.scheme() {
+                constants::GEMINI_SCHEME => Scheme::Gemini(url),
+                constants::GOPHER_SCHEME => Scheme::Gopher(url),
+                constants::HTTP_SCHEME   => Scheme::Http(url),
+                constants::HTTPS_SCHEME  => Scheme::Http(url),
+                _                        => Scheme::Unknown(url),
             };
+            Ok((scheme, label))
         } 
         else if Err(url::ParseError::RelativeUrlWithoutBase) == url_result 
         {
-            Ok(Link::Relative(url_str, label))
+            Ok((Scheme::Relative(url_str), label))
         } 
         else 
         {
-            Err(ParseError) 
+            Err(format!("no parse url")) 
         }
     }
 }
-
-
-#[derive(Clone, PartialEq, Debug)]
-pub enum GemTextLine 
-{
-    HeadingOne(String),
-    HeadingTwo(String),
-    HeadingThree(String),
-    Text(String), 
-    PreFormat(String),
-    Link(Link),
-    ListItem(String),
-    Quote(String),
-} 
 
 impl GemTextLine 
 {
     pub fn parse_doc(lines: Vec<&str>) -> Result<Vec<Self>, String> 
     {
-        let mut vec = vec![];
+        let mut vec        = vec![];
         let mut lines_iter = lines.iter();
 
         // return empty output if empty input
@@ -147,7 +118,11 @@ impl GemTextLine
                 preformat_flag = !preformat_flag;
             } 
             else if preformat_flag {
-                vec.push(Self::PreFormat(line.to_string()));
+                vec.push(
+                    Self {
+                        data: GemTextData::PreFormat, 
+                        text: line.to_string()
+                    });
             }
             else {
                 let formatted = Self::parse_formatted(line)
@@ -174,37 +149,64 @@ impl GemTextLine
         // look for 3 character symbols
         if let Some((symbol, text)) = line.split_at_checked(3) {
             if symbol == constants::HEADING_3_SYMBOL {
-                return Ok(GemTextLine::HeadingThree(text.to_string()))
+                return Ok(
+                    Self {
+                        data: GemTextData::HeadingThree,
+                        text: text.to_string(),
+                    })
             }
         }
 
         // look for 2 character symbols
         if let Some((symbol, text)) = line.split_at_checked(2) {
             if symbol == constants::LINK_SYMBOL {
-                let link = Link::from_str(text)
+                let (url, text) = Scheme::from_str(text)
                     .or_else(
                         |e| Err(format!("could not parse link {:?}", e))
                     )?;
-                return Ok(GemTextLine::Link(link))
+                return Ok(
+                    Self {
+                        data: GemTextData::Link(url),
+                        text: text,
+                    })
             }
             if symbol == constants::HEADING_2_SYMBOL {
-                return Ok(GemTextLine::HeadingTwo(text.to_string()))
+                return Ok(
+                    Self {
+                        data: GemTextData::HeadingTwo,
+                        text: text.to_string(),
+                    })
             }
         }
 
         // look for 1 character symbols
         if let Some((symbol, text)) = line.split_at_checked(1) {
             if symbol == constants::QUOTE_SYMBOL {
-                return Ok(GemTextLine::Quote(text.to_string()))
+                return Ok(
+                    Self {
+                        data: GemTextData::Quote,
+                        text: text.to_string(),
+                    })
             }
             if symbol == constants::LIST_ITEM_SYMBOL {
-                return Ok(GemTextLine::ListItem(text.to_string()))
+                return Ok(
+                    Self {
+                        data: GemTextData::ListItem,
+                        text: text.to_string(),
+                    })
             }
             if symbol == constants::HEADING_1_SYMBOL {
-                return Ok(GemTextLine::HeadingOne(text.to_string()))
+                return Ok(
+                    Self {
+                        data: GemTextData::HeadingOne,
+                        text: text.to_string(),
+                    })
             }
         }
-
-        Ok(GemTextLine::Text(line.to_string()))
+        return Ok(
+            Self {
+                data: GemTextData::Text,
+                text: line.to_string(),
+            })
     }
 }

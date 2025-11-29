@@ -1,36 +1,17 @@
 // text
 
-
-
-// *** BEGIN IMPORTS ***
 use crate::{
-    gemini::{
-        status::{
-            Status,
-        },
-        gemtext::{
-            GemTextLine,
-        },
-    },
-    view::{
-        styles::{
-            LineStyles,
-        },
-    },
+    gemini::status::Status,
+    gemini::gemtext::GemTextLine,
+    gemini::gemtext::GemTextData,
+    view::styles::LineStyles,
 };
 use ratatui::{
     prelude::*, 
-    text::{
-        Span,
-        ToLine,
-        Line,
-    },
-    widgets::{
-        Paragraph,
-        Wrap
-    },
+    text::Span,
+    text::ToLine,
+    text::Line,
 };
-// *** END IMPORTS ***
 
 
 
@@ -42,39 +23,23 @@ pub struct GemTextSpan<'a>
 }
 impl<'a> GemTextSpan<'a> 
 {
-    fn new(text: &GemTextLine, styles: &LineStyles) -> Self 
+    fn new(line: &GemTextLine, styles: &LineStyles) -> Self 
     {
-        let span = match text.clone() 
+        let style = match line.data 
         {
-            GemTextLine::HeadingOne(s) => {
-                Span::from(s).style(styles.heading_one)
-            }
-            GemTextLine::HeadingTwo(s) => {
-                Span::from(s).style(styles.heading_two)
-            }
-            GemTextLine::HeadingThree(s) => {
-                Span::from(s).style(styles.heading_three)
-            }
-            GemTextLine::Text(s) => {
-                Span::from(s).style(styles.text)
-            }
-            GemTextLine::Link(link) => {
-                Span::from(link.get_text()).style(styles.link)
-            }
-            GemTextLine::Quote(s) => {
-                Span::from(s).style(styles.quote)
-            }
-            GemTextLine::ListItem(s) => {
-                Span::from(s).style(styles.list_item)
-            }
-            GemTextLine::PreFormat(s) => {
-                Span::from(s).style(styles.preformat)
-            }
+            GemTextData::HeadingOne   => styles.heading_one,
+            GemTextData::HeadingTwo   => styles.heading_two,
+            GemTextData::HeadingThree => styles.heading_three,
+            GemTextData::Text         => styles.text,
+            GemTextData::Quote        => styles.quote,
+            GemTextData::ListItem     => styles.list_item,
+            GemTextData::PreFormat    => styles.preformat,
+            _                         => styles.link,
         };
 
         Self {
-            source: text.clone(),
-            span:   span,
+            source: line.clone(),
+            span:   Span::from(line.text.clone()).style(style),
         }
     }
 
@@ -85,8 +50,6 @@ impl<'a> GemTextSpan<'a>
             .style(self.span.style)
     }
 }
-
-
 
 #[derive(Clone, Debug)]
 pub struct PlainTextSpan<'a> 
@@ -111,8 +74,6 @@ impl<'a> PlainTextSpan<'a>
             .style(self.span.style)
     }
 }
-
-
 
 #[derive(Clone, Debug)]
 pub enum ModelTextType<'a>
@@ -183,8 +144,7 @@ pub struct ModelText<'a>
 }
 impl<'a> ModelText<'a> 
 {
-    pub fn get_gemtext_under_cursor(&'a self) 
-        -> Result<GemTextLine, String> 
+    pub fn get_gemtext_under_cursor(&'a self) -> Result<GemTextLine, String>
     {
         self.text.get_gemtext_at(self.vec_idx)
     }
@@ -233,10 +193,7 @@ impl<'a> ModelText<'a>
 
     pub fn update_from_response(self, status: Status, content: String) -> Self
     {
-        let size   = self.size;
-        let styles = self.styles;
-
-        Self::init_from_response(status, content, size, &styles)
+        Self::init_from_response(status, content, self.size, &self.styles)
     }
 
     pub fn init_from_response(status:  Status, 
@@ -319,14 +276,3 @@ impl<'a> ModelText<'a>
         self.cursor.x += 1;
     }
 }
-impl<'a> Widget for &ModelText<'a> 
-{
-    fn render(self, area: Rect, buf: &mut Buffer) 
-    {
-        Paragraph::new(self.text.get_lines())
-            .wrap(Wrap { trim: true })
-            .scroll((self.scroll.y, self.scroll.x))
-            .render(area, buf);
-    }
-}
-

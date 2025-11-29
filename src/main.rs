@@ -6,23 +6,18 @@ mod view;
 mod gemini;
 mod constants;
 mod util;
+mod msg;
 
-// *** BEGIN IMPORTS ***
 use url::Url;
+use crossterm::event;
 use std::io::{
     self, 
     stdout
 };
-use crate::view::{
-    model::{
-        self,
-        Model,
-    } 
-};
-use crossterm::{
-    event::{
-        self
-    },
+use crate::{
+    msg::Message,
+    view::update::update,
+    view::model::Model,
 };
 use ratatui::{
     Terminal,
@@ -37,7 +32,6 @@ use ratatui::{
         },
     },
 };
-// *** END IMPORTS ***
 
 
 
@@ -62,8 +56,8 @@ fn main() -> io::Result<()>
             (model.text.cursor.x, model.text.cursor.y))?;
 
         // update model with event message
-        if let Some(message) = model::handle_event(event::read()?) {
-            model = model::update(model, message);
+        if let Some(message) = Message::from_event(event::read()?) {
+            model = update(model, message);
         }
     }
 

@@ -1,16 +1,10 @@
 // styles
 
-
-
-// *** BEGIN IMPORTS ***
 use ratatui::{
     prelude::*, 
-    style::{
-        Color, 
-        Style, 
-    },
+    style::Color, 
+    style::Style, 
 };
-// *** END IMPORTS ***
 
 
 

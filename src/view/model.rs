@@ -1,34 +1,14 @@
 // model
 
-
-
-// *** BEGIN IMPORTS ***
-use url::Url;
-use std::str::FromStr;
 use crate::{
     util, 
-    view::{
-        dialog::{
-            Dialog,
-            Action,
-        },
-        styles::{
-            LineStyles,
-        },
-        text::{
-            ModelText,
-        },
-    },
-    gemini::{
-        status::{
-            Status,
-        },
-    },
+    view::dialog::Dialog,
+    view::styles::LineStyles,
+    view::text::ModelText,
+    gemini::status::Status,
 };
-use ratatui::{
-    prelude::*, 
-};
-// *** END IMPORTS ***
+use url::Url;
+use ratatui::prelude::*;
 
 
 
@@ -37,7 +17,6 @@ pub enum Address {
     Url(Url), 
     String(String),
 }
-
 
 #[derive(Clone, Debug)]
 pub struct Model<'a> {
@@ -126,15 +105,3 @@ impl<'a> Model<'a>
         self.text.cursor
     }
 } 
-impl<'a> Widget for &Model<'a> 
-{
-    fn render(self, area: Rect, buf: &mut Buffer) 
-    {
-        if let Some(dialog) = &self.dialog {
-            dialog.render(area, buf);
-        }
-        else {
-            self.text.render(area, buf);
-        }
-    }
-}

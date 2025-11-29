@@ -1,15 +1,8 @@
 // status
 
-
-
-// *** BEGIN IMPORTS ***
 use url::Url;
 use regex::Regex;
-use std::str::FromStr;
-use crate::{
-    constants,
-};
-// *** END IMPORTS ***
+use crate::constants;
 
 
 
@@ -19,19 +12,16 @@ pub enum Input {
     Sensitive,
 }
 
-
 #[derive(Debug, Clone)]
 pub enum Success {
     Success(i16),
 }
-
 
 #[derive(Debug, Clone)]
 pub enum Redirect {
     Temporary(i16),
     Permanent,
 }
-
 
 #[derive(Debug, Clone)]
 pub enum TemporaryFailure {
@@ -42,7 +32,6 @@ pub enum TemporaryFailure {
     SlowDown,
 }
 
-
 #[derive(Debug, Clone)]
 pub enum PermanentFailure {
     PermanentFailure(i16),
@@ -51,7 +40,6 @@ pub enum PermanentFailure {
     ProxyRequestRefused,  
     BadRequest,           
 }
-
 
 #[derive(Debug, Clone)]
 pub enum ClientCertRequired {
@@ -62,7 +50,6 @@ pub enum ClientCertRequired {
     FutureCertRejected,      
     ExpiredCertRejected,     
 } 
-
 
 #[derive(Debug, Clone)]
 pub enum Status {
@@ -217,13 +204,8 @@ impl Status
                     "received status number {} which maps to nothing", code)),
         }
     }
-} 
 
-impl FromStr for Status 
-{
-    type Err = String;
-
-    fn from_str(line: &str) -> Result<Status, Self::Err> 
+    pub fn from_str(line: &str) -> Result<Status, String> 
     {
         // get regex
         let Ok(regex) = Regex::new(constants::STATUS_REGEX)
