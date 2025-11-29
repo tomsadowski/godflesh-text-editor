@@ -12,6 +12,7 @@ use ratatui::{
     widgets::{
         Paragraph,
         Wrap,
+        Block,
     },
 };
 // *** END IMPORTS ***
@@ -91,6 +92,8 @@ impl Widget for &Dialog
     fn render(self, area: Rect, buf: &mut Buffer) 
     {
         Paragraph::new(self.text.clone())
+            .block(Block::bordered().title("Paragraph"))
+            .alignment(Alignment::Center)
             .wrap(Wrap { trim: true })
             .render(area, buf);
 

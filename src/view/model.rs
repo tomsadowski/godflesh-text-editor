@@ -7,7 +7,6 @@ use url::Url;
 use std::str::FromStr;
 use crate::{
     util, 
-    constants,
     view::{
         dialog::{
             Dialog,
@@ -24,34 +23,13 @@ use crate::{
         status::{
             Status,
         },
-        gemtext::{
-            GemTextLine,
-            Link,
-        },
     },
 };
 use ratatui::{
     prelude::*, 
 };
-use crossterm::{
-    event::{
-        KeyModifiers, 
-        KeyEvent, 
-        Event, 
-        KeyEventKind, 
-        KeyCode},
-};
 // *** END IMPORTS ***
 
-
-#[derive(Clone, Debug)]
-pub enum Message {
-    Code(char),
-    Resize(u16, u16),
-    Enter,
-    Escape,
-    Stop,
-}
 
 
 #[derive(Clone, Debug)]
@@ -147,37 +125,6 @@ impl<'a> Model<'a>
     {
         self.text.cursor
     }
-
-    pub fn submit(mut self)
-    {
-        if let Some(dialog) = self.dialog {
-            match dialog.action
-            {
-                Action::Download => {
-                    self.dialog = None;
-                },
-                Action::Acknowledge => {
-                    self.dialog = None;
-                },
-                Action::FollowLink(url) => {
-                    // return now if data retrieval fails
-                    let Ok((header, content)) = util::get_data(&url) else 
-                    {
-                        return
-                    };
-
-                    // return now if status parsing fails
-                    let Ok(status) = Status::from_str(&header) else {
-                        return
-                    };
-
-                    self.text = self.text.update_from_response(status, content);
-                    self.dialog = None;
-                },
-            }
-        }
-    }
-
 } 
 impl<'a> Widget for &Model<'a> 
 {
@@ -189,126 +136,5 @@ impl<'a> Widget for &Model<'a>
         else {
             self.text.render(area, buf);
         }
-    }
-}
-
-pub fn update(model: Model, msg: Message) -> Model 
-{
-    let mut m = model.clone();
-
-    match msg {
-        Message::Resize(y, x) => {
-            m.text.size = Size::new(y, x);
-        }
-        Message::Stop => { 
-            m.quit = true;
-        }
-        Message::Enter => {
-            if let Some(dialog) = m.dialog {
-                match dialog.action
-                {
-                    Action::FollowLink(url) => {
-                        // return now if data retrieval fails
-                        if let Ok((header, content)) = util::get_data(&url)
-                        {
-                            if let Ok(status) = Status::from_str(&header) {
-                                m.text = m.text.update_from_response(status, content);
-                            }
-                        }
-                    },
-                    _ => {}
-                }
-                m.dialog = None;
-            }
-            else if let Ok(text) = m.text.get_gemtext_under_cursor() 
-            {
-                match text {
-                    GemTextLine::Link(link) => {
-                        match link {
-                            Link::Gemini(url, _text) => {
-                                m.dialog = Some(Dialog::follow_link(url));
-                            }
-                            _ => {}
-                        }
-                    }
-                    _ => {}
-                }
-            }
-        }
-        Message::Escape => { 
-            m.dialog = None;
-        }
-        Message::Code(c) => {
-            if let None = m.dialog {
-                match c {
-                    constants::LEFT => {
-                        m.text.move_cursor_left();
-                    }
-                    constants::UP => {
-                        m.text.move_cursor_up();
-                    }
-                    constants::RIGHT => {
-                        m.text.move_cursor_right();
-                    }
-                    constants::DOWN => {
-                        m.text.move_cursor_down();
-                    }
-                    _ => {}
-                }
-            } 
-        }
-    }
-    // return Model
-    m
-}
-
-pub fn handle_event(event: Event) -> Option<Message> 
-{
-    match event {
-        Event::Key(keyevent) => 
-            handle_key_event(keyevent),
-
-        Event::Resize(y, x) => 
-            Some(Message::Resize(y, x)),
-
-        _ => 
-            None
-    }
-}
-
-pub fn handle_key_event(keyevent: KeyEvent) -> Option<Message> 
-{
-    match keyevent {
-        KeyEvent {
-            code: KeyCode::Char('c'),
-            kind: KeyEventKind::Press,
-            modifiers: KeyModifiers::CONTROL,
-            ..
-        } => {
-            Some(Message::Stop)
-        }
-        KeyEvent {
-            code: KeyCode::Enter,
-            kind: KeyEventKind::Press,
-            ..
-        } => {
-            Some(Message::Enter)
-        }
-        KeyEvent {
-            code: KeyCode::Esc,
-            kind: KeyEventKind::Press,
-            ..
-        } => {
-            Some(Message::Escape)
-        }
-        KeyEvent {
-            code: KeyCode::Char(c),
-            kind: KeyEventKind::Press,
-            ..
-        } => {
-            Some(Message::Code(c))
-        }
-        _ => 
-            None
     }
 }
