@@ -11,25 +11,22 @@ use crossterm::{
 
 
 #[derive(Clone, Debug)]
-pub enum Message {
+pub enum Message 
+{
     Code(char),
     Resize(u16, u16),
     Enter,
     Escape,
     Stop,
 }
-impl Message {
+impl Message 
+{
     pub fn from_event(event: Event) -> Option<Message> 
     {
         match event {
-            Event::Key(keyevent) => 
-                Self::from_key_event(keyevent),
-
-            Event::Resize(y, x) => 
-                Some(Message::Resize(y, x)),
-
-            _ => 
-                None
+            Event::Key(keyevent) => Self::from_key_event(keyevent),
+            Event::Resize(y, x)  => Some(Message::Resize(y, x)),
+            _                    => None
         }
     }
 

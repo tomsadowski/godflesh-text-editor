@@ -52,7 +52,8 @@ pub enum ClientCertRequired {
 } 
 
 #[derive(Debug, Clone)]
-pub enum Status {
+pub enum Status 
+{
     InputExpected(
         Input, 
         String

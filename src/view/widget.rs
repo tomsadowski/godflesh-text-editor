@@ -43,7 +43,7 @@ impl Widget for &Dialog
     fn render(self, area: Rect, buf: &mut Buffer) 
     {
         Paragraph::new(self.text.clone())
-            .block(Block::bordered().title("Paragraph"))
+            .block(Block::bordered().title("Dialog"))
             .alignment(Alignment::Center)
             .wrap(Wrap { trim: true })
             .render(area, buf);

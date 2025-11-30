@@ -16,16 +16,17 @@ pub enum Action
 }
 
 #[derive(Clone, Debug)]
-pub struct Dialog {
+pub struct Dialog 
+{
     pub action: Action,
     pub text:   String,
 }
-
 impl Dialog
 {
     pub fn download(str: String) -> Self 
     {
-        Self { 
+        Self 
+        { 
             action: Action::Download, 
             text:   format!("Download nontext type: {}?", str)
         }
@@ -33,7 +34,8 @@ impl Dialog
 
     pub fn acknowledge(str: String) -> Self 
     {
-        Self { 
+        Self 
+        { 
             action: Action::Acknowledge, 
             text:   format!("{}?", str)
         }
@@ -41,7 +43,8 @@ impl Dialog
 
     pub fn follow_link(url: Url) -> Self 
     {
-        Self { 
+        Self 
+        { 
             action: Action::FollowLink(url.clone()), 
             text:   format!("Go to {}?", String::from(url))
         }

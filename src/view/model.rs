@@ -13,13 +13,15 @@ use ratatui::prelude::*;
 
 
 #[derive(Clone, Debug)]
-pub enum Address {
+pub enum Address 
+{
     Url(Url), 
     String(String),
 }
 
 #[derive(Clone, Debug)]
-pub struct Model<'a> {
+pub struct Model<'a> 
+{
     pub dialog:  Option<Dialog>,
     pub address: Address,
     pub text:    ModelText<'a>,
