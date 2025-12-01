@@ -6,273 +6,159 @@ use crate::{
     gemini::gemtext::GemTextData,
     view::styles::LineStyles,
 };
-use ratatui::{
-    prelude::*, 
-    text::Span,
-    text::ToLine,
-    text::Line,
+use crossterm::{
+    style::Colors,
 };
 
 
 
 #[derive(Clone, Debug)]
-pub struct GemTextSpan<'a> 
+pub struct GemTextBlock
 {
-    pub source: GemTextLine,
-    pub span:   Span<'a>,
+    data:    GemTextData,
+    text:    Vec<String>,
+    style:   Colors,
+    height:  usize,
+    current: usize,
 }
-impl<'a> GemTextSpan<'a> 
+impl GemTextBlock
 {
-    fn new(line: &GemTextLine, styles: &LineStyles) -> Self 
+    fn new(line: &GemTextLine, styles: &LineStyles, size: (u16, u16)) -> Self 
     {
-        let style = match line.data 
-        {
-            GemTextData::HeadingOne   => styles.heading_one,
-            GemTextData::HeadingTwo   => styles.heading_two,
-            GemTextData::HeadingThree => styles.heading_three,
-            GemTextData::Text         => styles.text,
-            GemTextData::Quote        => styles.quote,
-            GemTextData::ListItem     => styles.list_item,
-            GemTextData::PreFormat    => styles.preformat,
-            _                         => styles.link,
-        };
+        let style = styles.get_colors(line.data.clone());
+        
+        let width = usize::from(size.0);
+        let lines: Vec<String> = 
+            line.text.splitn(width, ' ')
+                .map(|s| s.to_string())
+                .collect(); 
 
         Self {
-            source: line.clone(),
-            span:   Span::from(line.text.clone()).style(style),
+            data:    line.data.clone(),
+            style:   style.clone(),
+            height:  lines.len(),
+            text:    lines,
+            current: 0,
         }
     }
 
-    pub fn get_line(&'a self) -> Line<'a>
-    {
-        self.span
-            .to_line()
-            .style(self.span.style)
+    pub fn get_text_under_cursor(&self) -> (GemTextData, String) {
+        (self.data.clone(), self.text[self.current].clone())
     }
-}
 
-#[derive(Clone, Debug)]
-pub struct PlainTextSpan<'a> 
-{
-    pub source: String,
-    pub span:   Span<'a>,
-}
-impl<'a> PlainTextSpan<'a> 
-{
-    fn new(text: String, styles: &LineStyles) -> Self 
+    pub fn move_cursor_up(&mut self) -> bool
     {
-        Self {
-            source: text.clone(),
-            span:   Span::from(text).style(styles.plaintext),
+        if self.current > 0 { 
+            self.current -= 1;
+            return true;
+        }
+        else {
+            return false;
         }
     }
 
-    pub fn get_line(&'a self) -> Line<'a>
+    pub fn move_cursor_down(&mut self) -> bool
     {
-        self.span
-            .to_line()
-            .style(self.span.style)
-    }
-}
-
-#[derive(Clone, Debug)]
-pub enum ModelTextType<'a>
-{
-    GemText(Vec<GemTextSpan<'a>>),
-    PlainText(Vec<PlainTextSpan<'a>>),
-}
-impl<'a> ModelTextType<'a> 
-{
-    pub fn get_lines(&'a self) -> Vec<Line<'a>>
-    {
-        match &self {
-            ModelTextType::GemText(vec) => {
-                vec
-                    .iter()
-                    .map(|gemtext| gemtext.get_line())
-                    .collect()
-            }
-            ModelTextType::PlainText(vec) => {
-                vec
-                    .iter()
-                    .map(|plaintext| plaintext.get_line())
-                    .collect()
-            }
+        if self.current < self.text.len() - 1 {
+            self.current += 1;
+            return true;
         }
-    }
-
-    pub fn get_gemtext_at(&'a self, idx: usize) -> Result<GemTextLine, String> 
-    {
-        match &self {
-            ModelTextType::GemText(vec) => {
-                if let Some(gemtext) = vec.get(idx) {
-                    return Ok(gemtext.source.clone())
-                }
-                else {
-                    return Err(
-                        format!(
-                            "expected some gemtext, found none gemtext"))
-                }
-            }
-            ModelTextType::PlainText(vec) => {
-                if let Some(plaintext) = vec.get(idx) {
-                    return Err(
-                        format!(
-                            "expected gemtext, found plaintext: {}", 
-                            plaintext.source))
-                }
-                else {
-                    return Err(
-                        format!(
-                            "expected some gemtext, found none plaintext"))
-                }
-            }
+        else {
+            return false;
         }
     }
 }
 
 // the model's main viewport
 #[derive(Clone, Debug)]
-pub struct ModelText<'a>
+pub struct GemTextView
 {
-    pub text:    ModelTextType<'a>,
-    pub styles:  LineStyles,
-    pub size:    Size,
-    pub cursor:  Position,
-    pub scroll:  Position,
-    pub vec_idx: usize,
+    text:    Vec<GemTextBlock>,
+    styles:  LineStyles,
+    size:    (u16, u16),
+    current: usize,
 }
-impl<'a> ModelText<'a> 
+impl GemTextView 
 {
-    pub fn get_gemtext_under_cursor(&'a self) -> Result<GemTextLine, String>
+    pub fn new(content: String, styles: &LineStyles, size: (u16, u16)) -> Self 
     {
-        self.text.get_gemtext_at(self.vec_idx)
-    }
-
-    pub fn plain_text(content: String, size: Size, styles: &LineStyles) -> Self 
-    {
-        let vec = content
-                .lines()
-                .map(
-                    |s| PlainTextSpan::new(s.to_string(), &styles))
+        let text = 
+                GemTextLine::parse_doc(
+                    content
+                        .lines()
+                        .collect()
+                )
+                .unwrap()
+                .iter()
+                .map(|line| GemTextBlock::new(line, &styles, size))
                 .collect();
-
-        let text = ModelTextType::PlainText(vec);
-
         Self {
             text:    text,
             styles:  styles.clone(),
             size:    size,
-            cursor:  Position::new(0, 0),
-            scroll:  Position::new(0, 0),
-            vec_idx: 0,
+            current: 0,
         }
     }
 
-    pub fn gemtext(content: String, size: Size, styles: &LineStyles) -> Self 
-    {
-        Self {
-            text: ModelTextType::GemText(
-                    GemTextLine::parse_doc(
-                        content
-                            .lines()
-                            .collect()
-                    )
-                    .unwrap()
-                    .iter()
-                    .map(|line| GemTextSpan::new(line, &styles))
-                    .collect()
-                ),
-            styles:  styles.clone(),
-            size:    size,
-            cursor:  Position::new(0, 0),
-            scroll:  Position::new(0, 0),
-            vec_idx: 0,
-        }
-    }
-
-    pub fn update_from_response(self, status: Status, content: String) -> Self
-    {
-        Self::init_from_response(status, content, self.size, &self.styles)
-    }
-
-    pub fn init_from_response(status:  Status, 
-                              content: String,
-                              size:    Size,
-                              styles:  &LineStyles) -> Self
-    {
-        match status {
-            Status::Success(_variant, meta) => {
+    pub fn update_from_response(self, status: Status, content: String) -> Self {
+        let text = match status {
+            Status::Success(variant, meta) => {
                 if meta.starts_with("text/") {
-                    Self::gemtext(content, size, &styles)
+                    content
                 } 
                 else {
-                    Self::plain_text(format!("no text"), size, &styles)
+                    format!("nontext media encountered {:?}: {:?}", variant, meta)
                 }
             }
-            Status::InputExpected(_variant, _msg) => {
-                Self::plain_text(content, size, &styles)
+            Status::InputExpected(variant, meta) => {
+                format!("Input Expected {:?}: {:?}", variant, meta)
             }
             Status::TemporaryFailure(variant, meta) => {
-                Self::plain_text(
-                    format!("Temporary Failure {:?}: {:?}", variant, meta), 
-                    size,
-                    &styles)
+                format!("Temporary Failure {:?}: {:?}", variant, meta)
             }
             Status::PermanentFailure(variant, meta) => {
-                Self::plain_text(
-                    format!("Permanent Failure {:?}: {:?}", variant, meta), 
-                    size,
-                    &styles)
+                format!("Permanent Failure {:?}: {:?}", variant, meta)
             }
             Status::Redirect(_variant, new_url) => {
-                Self::plain_text(
-                    format!("Redirect to: {}?", new_url), 
-                    size,
-                    &styles)
+                format!("Redirect to: {}?", new_url)
             }
             Status::ClientCertRequired(_variant, meta) => {
-                Self::plain_text(
-                    format!("Certificate required: {}", meta), 
-                    size,
-                    &styles)
+                format!("Certificate required: {}", meta)
             }
-        }
+        };
+
+        Self::new(text, &self.styles, self.size)
     }
 
-    pub fn move_cursor_up(&mut self) 
-    {
-        if self.cursor.y > 0 { 
-            self.cursor.y -= 1;
-            self.vec_idx  -= 1;
-        }
-        else if self.scroll.y > 0 {
-            self.scroll.y -= 1;
-            self.vec_idx  -= 1;
-        }
+    pub fn get_text_under_cursor(&self) -> (GemTextData, String) {
+        self.text[self.current].get_text_under_cursor()
     }
 
-    pub fn move_cursor_down(&mut self) 
+    pub fn move_cursor_up(&mut self) -> bool
     {
-        if self.cursor.y < self.size.height {
-            self.cursor.y += 1;
-            self.vec_idx  += 1;
+        if self.text[self.current].move_cursor_up() {
+            return true;
+        }
+        else if self.current == 0 {
+            return false;
         }
         else {
-            self.scroll.y += 1;
-            self.vec_idx  += 1;
+            self.current -= 1;
+            return self.move_cursor_up();
         }
     }
 
-    pub fn move_cursor_left(&mut self) 
+    pub fn move_cursor_down(&mut self) -> bool
     {
-        if self.cursor.x > 0 { 
-            self.cursor.x -= 1;
+        if self.text[self.current].move_cursor_down() {
+            return true;
         }
-    }
-
-    pub fn move_cursor_right(&mut self) 
-    {
-        self.cursor.x += 1;
+        else if self.current == self.text.len() - 1 {
+            return false;
+        }
+        else {
+            self.current += 1;
+            return self.move_cursor_down();
+        }
     }
 }

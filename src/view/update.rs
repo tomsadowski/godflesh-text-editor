@@ -12,7 +12,6 @@ use crate::{
     gemini::gemtext::GemTextData,
     gemini::gemtext::Scheme,
 };
-use ratatui::prelude::Size;
 
 
 // return new model based on old model and message
@@ -21,9 +20,6 @@ pub fn update(model: Model, msg: Message) -> Model
     let mut m = model.clone();
 
     match msg {
-        Message::Resize(y, x) => {
-            m.text.size = Size::new(y, x);
-        }
         Message::Stop => { 
             m.quit = true;
         }
@@ -34,23 +30,26 @@ pub fn update(model: Model, msg: Message) -> Model
             if let Some(dialog) = m.dialog.clone() {
                 m = respond_to_dialog(m, dialog);
             }
-            else if let Ok(text) = m.text.get_gemtext_under_cursor() 
-            {
-                m.dialog = query_gemtext_line(text);
+            else { 
+                let data = m.text.get_text_under_cursor().0;
+                m.dialog = query_gemtext_data(data);
             }
+        }
+        Message::Resize(_y, _x) => {
+//            m.text.size = (y, x);
         }
         Message::Code(c) => {
             if let None = m.dialog {
                 match c {
-                    constants::LEFT => {
-                        m.text.move_cursor_left();
-                    }
+                //  constants::LEFT => {
+                //      m.text.move_cursor_left();
+                //  }
                     constants::UP => {
                         m.text.move_cursor_up();
                     }
-                    constants::RIGHT => {
-                        m.text.move_cursor_right();
-                    }
+                //  constants::RIGHT => {
+                //      m.text.move_cursor_right();
+                //  }
                     constants::DOWN => {
                         m.text.move_cursor_down();
                     }
@@ -63,13 +62,11 @@ pub fn update(model: Model, msg: Message) -> Model
     m
 }
 
-pub fn query_gemtext_line(text: GemTextLine) -> Option<Dialog>
+pub fn query_gemtext_data(text: GemTextData) -> Option<Dialog>
 {
     match text {
-        GemTextLine {
-            data: GemTextData::Link(Scheme::Gemini(url)),
-            ..
-        } => {
+        GemTextData::Link(Scheme::Gemini(url)) => 
+        {
             Some(Dialog::follow_link(url))
         }
         g => {

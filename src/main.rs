@@ -1,6 +1,7 @@
 // main
 
 #![allow(dead_code)]
+#![allow(unused_imports)]
 
 mod view;
 mod gemini;
@@ -9,51 +10,37 @@ mod util;
 mod msg;
 
 use url::Url;
-use crossterm::event;
+use crossterm::{
+    execute, 
+    event,
+    style::Print,
+    terminal::{ScrollUp, SetSize, size},
+};
 use std::io::{
     self, 
-    stdout
+    stdout,
 };
 use crate::{
     msg::Message,
     view::update::update,
     view::model::Model,
 };
-use ratatui::{
-    Terminal,
-    backend::CrosstermBackend, 
-    crossterm::{
-        ExecutableCommand,
-        terminal::{
-            disable_raw_mode, 
-            enable_raw_mode, 
-            EnterAlternateScreen, 
-            LeaveAlternateScreen,
-        },
-    },
-};
 
 
 
 fn main() -> io::Result<()> 
 {
-    // enter alternate screen
-    enable_raw_mode()?;
-    stdout().execute(EnterAlternateScreen)?;
+    let (cols, rows) = size()?;
 
-    // data init
-    let     url      = Url::parse(constants::INIT_LINK).ok();
-    let mut terminal = Terminal::new(CrosstermBackend::new(stdout()))?;
-    let mut model    = Model::init(&url, terminal.size()?);
+    let url       = Url::parse(constants::INIT_LINK).ok();
+    let mut model = Model::init(&url, (cols, rows));
 
-    // main loop
-    while !model.quit 
-    {
-        // display model
-        terminal.draw(|f| f.render_widget(&model, f.area()))?;
-        terminal.show_cursor()?;
-        terminal.set_cursor_position(
-            (model.text.cursor.x, model.text.cursor.y))?;
+    while !model.quit {
+        // Resize terminal and scroll up.
+        execute!(
+            io::stdout(),
+            Print(format!("{:#?}", model)),
+        )?;
 
         // update model with event message
         if let Some(message) = Message::from_event(event::read()?) {
@@ -61,10 +48,8 @@ fn main() -> io::Result<()>
         }
     }
 
-    // ui close
-    stdout().execute(LeaveAlternateScreen)?;
-    disable_raw_mode()?;
+    // Be a good citizen, cleanup
+    execute!(io::stdout(), SetSize(cols, rows))?;
     Ok(())
 }
-
 

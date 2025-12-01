@@ -1,59 +1,70 @@
 // styles
 
-use ratatui::{
-    prelude::*, 
-    style::Color, 
-    style::Style, 
+use crossterm::{
+    style::Color,
+    style::Colors,
 };
-
+use crate::gemini::gemtext::GemTextData;
 
 
 #[derive(Clone, Debug)]
 pub struct LineStyles 
 {
-    pub heading_one:   Style,
-    pub heading_two:   Style,
-    pub heading_three: Style,
-    pub link:          Style,
-    pub list_item:     Style,
-    pub quote:         Style,
-    pub preformat:     Style,
-    pub text:          Style,
-    pub plaintext:     Style,
+    pub heading_one:   Colors,
+    pub heading_two:   Colors,
+    pub heading_three: Colors,
+    pub link:          Colors,
+    pub list_item:     Colors,
+    pub quote:         Colors,
+    pub preformat:     Colors,
+    pub text:          Colors,
+    pub plaintext:     Colors,
 }
 impl LineStyles 
 {
     pub fn new() -> Self 
     {
-        let heading_one_style = Style::new()
-                .fg(Color::Rgb(208,  96,  96))
-                .bg(Color::Rgb( 48,  24,  24))
-                .add_modifier(Modifier::BOLD);
+        let heading_one_style = 
+            Colors::new(
+                Color::Rgb {r: 208,  g:  96,  b:  96},
+                Color::Rgb {r:  48,  g:  24,  b:  24},
+            );
 
-        let heading_two_style = Style::new()
-                .fg(Color::Rgb(208,  96,  96))
-                .bg(Color::Rgb(  0,   0,   0))
-                .add_modifier(Modifier::BOLD);
+        let heading_two_style = 
+            Colors::new(
+                Color::Rgb {r: 208,  g:  96,  b:  96},
+                Color::Rgb {r:   0,  g:   0,  b:   0},
+            );
 
-        let heading_three_style = Style::new()
-                .fg(Color::Rgb(208,  96,  96))
-                .bg(Color::Rgb(  0,   0,   0));
+        let heading_three_style = 
+            Colors::new(
+                Color::Rgb {r: 208,  g:  96,  b:  96},
+                Color::Rgb {r:   0,  g:   0,  b:   0},
+            );
 
-        let link_style = Style::new()
-                .fg(Color::Rgb(176,  96, 192))
-                .bg(Color::Rgb(  0,   0,   0));
+        let link_style = 
+            Colors::new(
+                Color::Rgb {r: 176,  g:  96,  b: 192},
+                Color::Rgb {r:   0,  g:   0,  b:   0},
+            );
 
-        let text_style = Style::new()
-                .fg(Color::Rgb(192, 192, 144))
-                .bg(Color::Rgb(  0,   0,   0));
+        let text_style =
+            Colors::new(
+                Color::Rgb {r: 192,  g: 192,  b: 144},
+                Color::Rgb {r:   0,  g:   0,  b:   0},
+            );
 
-        let list_style = Style::new()
-                .fg(Color::Rgb(192, 192, 144))
-                .bg(Color::Rgb(  0,   0,   0));
+        let list_style =
+            Colors::new(
+                Color::Rgb {r: 192,  g: 192,  b: 144},
+                Color::Rgb {r:   0,  g:   0,  b:   0},
+            );
 
-        let quote_style = Style::new()
-                .fg(Color::Rgb(192, 192, 144))
-                .bg(Color::Rgb(  0,   0,   0));
+        let quote_style =
+            Colors::new(
+                Color::Rgb {r: 192,  g: 192,  b: 144},
+                Color::Rgb {r:   0,  g:   0,  b:   0},
+            );
 
         Self {
             heading_one:   heading_one_style,
@@ -65,6 +76,19 @@ impl LineStyles
             preformat:     text_style,
             plaintext:     text_style,
             text:          text_style,
+        }
+    }
+
+    pub fn get_colors(&self, data: GemTextData) -> Colors {
+        match data {
+            GemTextData::HeadingOne   => self.heading_one,
+            GemTextData::HeadingTwo   => self.heading_two,
+            GemTextData::HeadingThree => self.heading_three,
+            GemTextData::Text         => self.text,
+            GemTextData::Quote        => self.quote,
+            GemTextData::ListItem     => self.list_item,
+            GemTextData::PreFormat    => self.preformat,
+            _                         => self.link,
         }
     }
 }

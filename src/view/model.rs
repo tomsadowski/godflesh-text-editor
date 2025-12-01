@@ -4,11 +4,10 @@ use crate::{
     util, 
     view::dialog::Dialog,
     view::styles::LineStyles,
-    view::text::ModelText,
+    view::text::GemTextView,
     gemini::status::Status,
 };
 use url::Url;
-use ratatui::prelude::*;
 
 
 
@@ -20,16 +19,16 @@ pub enum Address
 }
 
 #[derive(Clone, Debug)]
-pub struct Model<'a> 
+pub struct Model
 {
     pub dialog:  Option<Dialog>,
     pub address: Address,
-    pub text:    ModelText<'a>,
+    pub text:    GemTextView,
     pub quit:    bool,
 } 
-impl<'a> Model<'a>
+impl Model
 {
-    pub fn init(_url: &Option<Url>, size: Size) -> Self 
+    pub fn init(_url: &Option<Url>, size: (u16, u16)) -> Self 
     {
         let styles = LineStyles::new();
 
@@ -37,10 +36,11 @@ impl<'a> Model<'a>
         let Some(url) = _url else 
         {
             let text = 
-                ModelText::plain_text(
+                GemTextView::new(
                     format!("welcome"), 
-                    size, 
-                    &styles);
+                    &styles,
+                    size,
+                    );
 
             return Self {
                 address: Address::String(String::from("")),
@@ -56,10 +56,11 @@ impl<'a> Model<'a>
         let Ok((header, content)) = util::get_data(&url) else 
         {
             let text = 
-                ModelText::plain_text(
+                GemTextView::new(
                     format!("data retrieval failed"), 
+                    &styles,
                     size, 
-                    &styles);
+                    );
 
             return Self {
                 address: address,
@@ -72,10 +73,11 @@ impl<'a> Model<'a>
         // return now if status parsing fails
         let Ok(status) = Status::from_str(&header) else {
             let text = 
-                ModelText::plain_text(
+                GemTextView::new(
                     format!("could not parse status"), 
+                    &styles,
                     size, 
-                    &styles);
+                    );
 
             return Self {
                 address: address,
@@ -84,15 +86,44 @@ impl<'a> Model<'a>
                 quit:    false,
             }
         };
-
-        let text = 
-            ModelText::init_from_response(
-                status.clone(), 
-                content, 
-                size, 
-                &styles);
-
-        let dialog = Dialog::init_from_response(status);
+        
+        let (text, dialog) = match status 
+        {
+            Status::Success(_variant, meta) => 
+            {
+                if meta.starts_with("text/") 
+                {
+                    (GemTextView::new(content, &styles, size),
+                    None)
+                } 
+                else 
+                {
+                    (GemTextView::new(content, &styles, size),
+                    Some(Dialog::download(meta)))
+                }
+            }
+            Status::InputExpected(_variant, msg) => 
+            {
+                let text = format!("input: {}", msg);
+                (GemTextView::new(content, &styles, size),
+                Some(Dialog::acknowledge(text)))
+            }
+            Status::Redirect(_variant, new_url) => 
+            {
+                (GemTextView::new(content, &styles, size),
+                Some(Dialog::follow_link(new_url)))
+            }
+            Status::ClientCertRequired(_variant, meta) => 
+            {
+                let text = format!("Certificate required: {}", meta);
+                (GemTextView::new(content, &styles, size),
+                Some(Dialog::acknowledge(text)))
+            }
+            _ => {
+                (GemTextView::new(content, &styles, size),
+                None)
+            }
+        };
 
         Self {
             address: address,
@@ -100,10 +131,5 @@ impl<'a> Model<'a>
             dialog:  dialog,
             quit:    false,
         }
-    }
-    
-    pub fn get_cursor_position(self) -> Position 
-    {
-        self.text.cursor
     }
 } 
