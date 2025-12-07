@@ -4,34 +4,31 @@
 #![allow(unused_imports)]
 
 mod util;
-mod gemini;
-mod text;
+mod gemtext;
+mod status;
 mod textview;
-mod dialog;
 mod model;
 
 use crate::{
-    text::{
-        GemTextBlock,
-    },
     model::{
         Message, Model,
     },
 };
-use url::Url;
 use crossterm::{
     QueueableCommand, terminal, cursor, event
 };
 use std::io::{
     self, stdout, Write
 };
+use url::Url;
 
 // elm paradigm
 fn main() -> io::Result<()> {
     // init
     terminal::enable_raw_mode()?;
     let     url    = Url::parse("gemini://geminiprotocol.net/").ok();
-    let mut model  = Model::new(&url, terminal::size()?);
+    let     size   = terminal::size()?;
+    let mut model  = Model::new(&url, size.0, size.1);
     let mut stdout = stdout();
 
     stdout
