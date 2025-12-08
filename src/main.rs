@@ -26,9 +26,9 @@ use url::Url;
 fn main() -> io::Result<()> {
     // init
     terminal::enable_raw_mode()?;
-    let     url    = Url::parse("gemini://geminiprotocol.net/").ok();
+    let     url    = Url::parse("gemini://geminiprotocol.net/").unwrap();
     let     size   = terminal::size()?;
-    let mut model  = Model::new(&url, size.0, size.1);
+    let mut model  = Model::new(url, size.0, size.1).unwrap();
     let mut stdout = stdout();
 
     stdout

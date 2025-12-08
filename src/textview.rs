@@ -12,25 +12,31 @@ use crossterm::{
 use crate::util::get_indexed_wrapped;
 
 #[derive(Clone, Debug)]
-pub struct TextView<'a, 'b> {
-    source_text:  Vec<(Colors, &'a str)>,
-    display_text: Vec<(usize , &'b str)>,
+pub struct TextView {
+    source_text:  Vec<(Colors, String)>,
+    display_text: Vec<(usize , String)>,
     scroll:       u16,
     width:        u16,
     height:       u16,
     cursor_x:     u16, 
     cursor_y:     u16,
 } 
-impl<'a: 'b, 'b> TextView<'a, 'b> {
+impl TextView {
 
-    pub fn new(source: Vec<(Colors, &'a str)>, width: u16, height: u16) -> Self {
-
-        let wrapped = get_indexed_wrapped(
-            &source.iter().map(|x| x.1).collect(), 
-            usize::from(width));
+    pub fn new(source: Vec<(Colors, String)>, width: u16, height: u16) 
+        -> Self 
+    {
+        let source_text = source.clone();
+        let wrapped: Vec<(usize, String)> = 
+            get_indexed_wrapped(
+                    source_text.iter().map(|x| &x.1).collect(), 
+                    usize::from(width))
+                .iter()
+                .map(|x| (x.0, x.1.to_string()))
+                .collect();
 
         return Self {
-            source_text:  source,
+            source_text:  source_text,
             display_text: wrapped,
             width:        width,
             height:       height,
@@ -50,7 +56,7 @@ impl<'a: 'b, 'b> TextView<'a, 'b> {
             stdout
                 .queue(cursor::MoveTo(0, i as u16))?
                 .queue(style::SetColors(self.source_text[l.0].0))?
-                .queue(style::Print(l.1))?;
+                .queue(style::Print(l.1.as_str()))?;
         }
 
         stdout.queue(cursor::MoveTo(self.cursor_x, self.cursor_y))?;
@@ -63,8 +69,14 @@ impl<'a: 'b, 'b> TextView<'a, 'b> {
         self.height = height;
         self.display_text = 
             get_indexed_wrapped(
-                &self.source_text.iter().map(|x| x.1).collect(), 
-                usize::from(self.width));
+                    self.source_text.iter().map(|x| &x.1).collect(), 
+                    usize::from(width))
+                .iter()
+                .map(|x| (x.0, x.1.to_string()))
+                .collect();
+          //get_indexed_wrapped(
+          //    self.source_text.iter().map(|x| &x.1).collect(), 
+          //    usize::from(self.width));
     }
 
     pub fn move_cursor_down(&mut self) {

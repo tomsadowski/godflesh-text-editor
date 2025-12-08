@@ -90,7 +90,7 @@ impl LineStyles {
             text:          text_style,
         }
     }
-    pub fn get_colors(&self, data: GemTextData) -> Colors {
+    pub fn get_colors(&self, data: &GemTextData) -> Colors {
         match data {
             GemTextData::HeadingOne   => self.heading_one,
             GemTextData::HeadingTwo   => self.heading_two,
@@ -101,6 +101,14 @@ impl LineStyles {
             GemTextData::PreFormat    => self.preformat,
             _ => self.link,
         }
+    }
+    pub fn get_tuples<'a>(&self, lines: &'a Vec<GemTextLine>) 
+        -> Vec<(Colors, &'a str)>
+    {
+        lines
+            .iter()
+            .map(|g| (self.get_colors(&g.data), g.text.as_str()))
+            .collect()
     }
 }
 
@@ -158,9 +166,6 @@ impl Dialog {
 pub enum Message {
     Code(char),
     Resize(u16, u16),
-    Enter,
-    Escape,
-    Stop,
 }
 
 impl Message {
@@ -196,79 +201,46 @@ pub enum Address
     String(String),
 }
 
-
 #[derive(Clone, Debug)]
-pub struct Model<'a, 'b> {
+pub struct Model {
     quit:    bool,
-    dialog:  Option<Dialog>,
-    text:    TextView<'a, 'b>,
-    address: Address,
+    source:  Vec<GemTextData>,
+    text:    TextView,
+    styles:  LineStyles,
 }
+impl Model {
 
-impl<'a: 'b, 'b> Model<'a, 'b> 
-{
-    pub fn new(_url: &Option<Url>, width: u16, height: u16) -> Self 
-    {
-        let _styles = LineStyles::new();
+    pub fn new(url: Url, width: u16, height: u16) -> Result<Self, String> {
 
-        // return now if no url provided
-        let Some(url) = _url else 
-        {
-            let text = TextView::new(vec![], width, height); 
+        let (header, content) = util::get_data(&url).unwrap(); 
+        let status            = Status::from_str(&header).unwrap();
 
-            return Self {
-                address: Address::String(String::from("")),
-                text:    text,
-                dialog:  None,
-                quit:    false,
-            }
+        let lines: Vec<GemTextLine> = match status {
+            Status::Success(_variant, meta) => 
+                if meta.starts_with("text/") {
+                    GemTextLine::parse_doc(content.lines().collect()).unwrap()
+                } else {
+                    GemTextLine::parse_doc(meta.lines().collect()).unwrap()
+                },
+            _ => 
+                GemTextLine::parse_doc(content.lines().collect()).unwrap(),
         };
 
-        let address = Address::Url(url.clone());
+        let styles = LineStyles::new();
+        let text   = TextView::new(
+            lines
+                .iter()
+                .map(|g| (styles.get_colors(&g.data), g.text.clone()))
+                .collect(),
+            width, 
+            height); 
 
-        // return now if data retrieval fails
-        let Ok((header, _content)) = util::get_data(&url) else {
-
-            let text = TextView::new(vec![], width, height); 
-
-            return Self {
-                address: address,
-                text:    text,
-                dialog:  None,
-                quit:    false,
-            }
-        };
-
-        // return now if status parsing fails
-        let Ok(_status) = Status::from_str(&header) else {
-
-            let text = TextView::new(vec![], width, height); 
-
-            return Self {
-                address: address,
-                text:    text,
-                dialog:  None,
-                quit:    false,
-            }
-        };
-
-        let text = TextView::new(vec![], width, height); 
-
-   //   let text = 
-   //       ModelText::init_from_response(
-   //           status.clone(), 
-   //           content, 
-   //           size, 
-   //           &styles);
-
-     //   let dialog = Dialog::init_from_response(status);
-
-        Self {
-            address: address,
+        Ok(Self {
+            source:  lines.iter().map(|g| g.data.clone()).collect(),
             text:    text,
-            dialog:  None,
+            styles:  styles,
             quit:    false,
-        }
+        })
     }
 
     pub fn quit(&self) -> bool {
@@ -276,83 +248,23 @@ impl<'a: 'b, 'b> Model<'a, 'b>
     }
 
     pub fn view(&self, stdout: &Stdout) -> io::Result<()> {
-        self.text.view(stdout)
+        self.text.view(&stdout)
     }
 
     // return new model based on old model and message
     pub fn update(&mut self, msg: Message) {
         match msg {
-            Message::Stop => { 
-                self.quit = true;
-            }
-            Message::Escape => { 
-                self.dialog = None;
-            }
-            Message::Enter => {
-           //   if let Some(dialog) = self.dialog.clone() {
-           //       self = respond_to_dialog(self, dialog);
-           //   }
-           //   else { 
-           //       let data = self.text.get_text_under_cursor().0;
-           //       self.dialog = query_gemtext_data(data);
-           //   }
-            }
-            Message::Resize(_y, _x) => {
+            Message::Resize(y, x) => {
+                self.text.resize(x, y);
             }
             Message::Code(c) => {
-                if let None = self.dialog {
-                    match c {
-                        UP   => self.text.move_cursor_up(),
-                        DOWN => self.text.move_cursor_down(),
-                        QUIT => self.quit = true,
-                        _ => {}
-                    }
-                } 
+                match c {
+                    UP   => self.text.move_cursor_up(),
+                    DOWN => self.text.move_cursor_down(),
+                    QUIT => self.quit = true,
+                    _ => {}
+                }
             }
         }
     }
-    
-    fn respond_to_dialog(&mut self, dialog: Dialog) {
-        match dialog.action {
-            Action::FollowLink(url) => {
-                if let Ok((header, _content)) = util::get_data(&url) {
-                    if let Ok(_status) = Status::from_str(&header) {
-//                      self.text = 
-//                          self.text.update_from_response(status, content);
-                    }
-                }
-            },
-            _ => {}
-        }
-        self.dialog = None;
-    }
 }
-//  pub fn update_from_response(self, status: Status, content: String) -> Self {
-//      let text = match status {
-//          Status::Success(variant, meta) => {
-//              if meta.starts_with("text/") {
-//                  content
-//              } 
-//              else {
-//                  format!("nontext media encountered {:?}: {:?}", variant, meta)
-//              }
-//          }
-//          Status::InputExpected(variant, meta) => {
-//              format!("Input Expected {:?}: {:?}", variant, meta)
-//          }
-//          Status::TemporaryFailure(variant, meta) => {
-//              format!("Temporary Failure {:?}: {:?}", variant, meta)
-//          }
-//          Status::PermanentFailure(variant, meta) => {
-//              format!("Permanent Failure {:?}: {:?}", variant, meta)
-//          }
-//          Status::Redirect(_variant, new_url) => {
-//              format!("Redirect to: {}?", new_url)
-//          }
-//          Status::ClientCertRequired(_variant, meta) => {
-//              format!("Certificate required: {}", meta)
-//          }
-//      };
-
-//      Self::new(text, &self.styles, self.size)
-//  }

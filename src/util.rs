@@ -10,10 +10,10 @@ use std::net::{
 use native_tls::TlsConnector;
 use tempfile::NamedTempFile;
 
-pub fn get_indexed_wrapped<'a: 'b, 'b>
-    (lines: &Vec<&'a str>, width: usize) -> Vec<(usize, &'b str)> 
+pub fn get_indexed_wrapped<'a: 'b, 'b>(lines: Vec<&'a String>, width: usize) 
+    -> Vec<(usize, &'b str)> 
 {
-    let mut wrapped: Vec<(usize, &'b str)> = vec![];
+    let mut wrapped: Vec<(usize, &str)> = vec![];
 
     for (i, l) in lines.iter().enumerate() {
         let v = get_wrapped(l, width);
@@ -24,9 +24,7 @@ pub fn get_indexed_wrapped<'a: 'b, 'b>
     wrapped
 }
 
-pub fn get_wrapped<'a: 'b, 'b>
-    (line: &'a str, width: usize) -> Vec<&'b str> 
-{
+pub fn get_wrapped(line: &str, width: usize) -> Vec<&str> {
     let mut wrapped: Vec<&str> = vec![];
     let mut start  = 0;
     let mut end    = width;
