@@ -1,51 +1,35 @@
 // main
 
 #![allow(dead_code)]
-#![allow(unused_imports)]
 
 mod util;
 mod gemtext;
-mod status;
-mod textview;
-mod model;
+mod ui;
+mod widget;
+mod tabs;
 
-use crate::{
-    model::{
-        Message, Model,
-    },
-};
-use crossterm::{
-    QueueableCommand, terminal, cursor, event
-};
-use std::io::{
-    self, stdout, Write
-};
-use url::Url;
+use crate::ui::UI;
+use crossterm::{QueueableCommand, terminal, cursor, event};
+use std::io::{self, stdout, Write};
 
-// elm paradigm
 fn main() -> io::Result<()> {
-    // init
-    terminal::enable_raw_mode()?;
-    let     url    = Url::parse("gemini://geminiprotocol.net/").unwrap();
-    let     size   = terminal::size()?;
-    let mut model  = Model::new(url, size.0, size.1).unwrap();
+    let (w, h) = terminal::size()?;
+    let mut ui = UI::new("gemini://geminiprotocol.net/", w, h);
     let mut stdout = stdout();
 
+    terminal::enable_raw_mode()?;
     stdout
         .queue(terminal::EnterAlternateScreen)?
         .queue(terminal::DisableLineWrap)?
         .queue(cursor::Show)?;
     stdout.flush()?;
 
-    while !model.quit() {
-        // display model
-        model.view(&stdout)?;
+    ui.view(&stdout)?;
 
-        // update model with event message.
-        // note that calling `event::read()` blocks until
-        // an event is encountered.
-        if let Some(msg) = Message::from_event(event::read()?) {
-            model.update(msg);
+    // main loop
+    while !ui.quit() {
+        if ui.update(event::read()?) {
+            ui.view(&stdout)?;
         }
     }
 
