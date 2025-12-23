@@ -11,15 +11,12 @@ mod config; // keybindings, visuals
 
 use crate::{
     ui::UI,
-    config::Config,
-};
+    config::Config};
 use crossterm::{
-    QueueableCommand, terminal, cursor, event
-};
+    QueueableCommand, terminal, cursor, event};
 use std::{
     io::{self, stdout, Write},
-    fs
-};
+    fs};
 
 fn main() -> io::Result<()> {
     let configtext = fs::read_to_string("gem.toml").unwrap();

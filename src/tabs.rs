@@ -133,10 +133,10 @@ impl Tab {
         let gemtext = match gemini::parse_status(&stat_str) {
             Ok((Status::Success, _)) => 
                 gemini::parse_doc(text_str.lines().collect()).unwrap(),
-            Ok((_, s)) => 
+            Ok((status, text)) => 
                 vec![(
                     GemTextData::Text, 
-                    format!("status reply: {}", s)
+                    format!("status reply: {:?} {}", status, text)
                 )],
             Err(s) => 
                 vec![(
@@ -268,12 +268,12 @@ impl Tab {
                                         (keys.no, String::from("no"))
                                     ])),
                             &format!("go to {}?", l)),
-                    _ => 
+                    gemtext => 
                         Dialog::new(
                             &self.rect,
                             TabMsg::None,
                             InputType::None,
-                            "You've selected some text. "),
+                            &format!("{:?}", gemtext)),
                 };
                 self.dlgstack.push(dialog);
                 return Some(TabMsg::None)

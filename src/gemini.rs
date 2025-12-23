@@ -132,9 +132,14 @@ fn parse_formatted(line: &str) -> Result<(GemTextData, String), String> {
     return Ok((GemTextData::Text, line.to_string()))
 }
 fn parse_scheme(line: &str) -> Result<(Scheme, String), String> {
-    let (url_str, text) = match line.trim().split_once(' ') {
-        Some((link, txt)) => (link.trim(), txt.trim()),
-        None => (line.trim(), line.trim()),
+    let (url_str, text) = {
+        if let Some(i) = line.find("\u{0009}") {
+            (line[..i].trim(), line[i..].trim())
+        } else if let Some(i) = line.find(" ") {
+            (line[..i].trim(), line[i..].trim())
+        } else {
+            (line, line)
+        }
     };
     let url_result = Url::parse(url_str);
     if let Ok(url) = url_result {

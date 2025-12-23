@@ -117,8 +117,11 @@ pub fn wrap(line: &str, screenwidth: u16) -> Vec<String> {
     let length = line.len();
     let mut wrapped: Vec<String> = vec![];
     // assume slice bounds
-    let (mut start, mut end) = (0, width);
+    let mut start = 0;
+    let mut end = width;
     while end < length {
+        start = line.ceil_char_boundary(start);
+        end = line.floor_char_boundary(end);
         let longest = &line[start..end];
         // try to break line at a space
         match longest.rsplit_once(' ') {
