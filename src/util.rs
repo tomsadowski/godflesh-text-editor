@@ -45,7 +45,8 @@ pub fn wrap(line: &str, screenwidth: u16) -> Vec<String> {
     }
     // add the remaining text
     if start < length {
-        wrapped.push(String::from(&line[start..length]));
+        start = line.floor_char_boundary(start);
+        wrapped.push(String::from(&line[start..]));
     }
     wrapped
 }
@@ -81,7 +82,8 @@ pub fn cut(line: &str, screenwidth: u16) -> String {
 
     }
 }
-pub fn split_whitespace_once(line: &str) -> (&str, &str) {
+pub fn split_whitespace_once(source: &str) -> (&str, &str) {
+    let line = source.trim();
     let (a, b) = {
         if let Some(i) = line.find("\u{0009}") {
             (line[..i].trim(), line[i..].trim())

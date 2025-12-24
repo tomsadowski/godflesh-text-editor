@@ -111,7 +111,7 @@ impl ScrollingCursor {
     }
     // index of cursor within its rect
     pub fn index(&self) -> usize {
-        usize::from(self.cursor - self.rect.y)
+        self.scroll + usize::from(self.cursor - self.rect.y)
     }
 }
 // enables the selection of metadata (T) behind formatted text.
