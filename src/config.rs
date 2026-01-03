@@ -3,16 +3,18 @@
 use serde::Deserialize;
 
 #[derive(Deserialize, Debug, Clone)]
-pub struct GemColors {
-    pub heading1:  (u8, u8, u8),
-    pub heading2:  (u8, u8, u8),
-    pub heading3:  (u8, u8, u8),
-    pub text:      (u8, u8, u8),
-    pub link:      (u8, u8, u8),
-    pub badlink:   (u8, u8, u8),
-    pub quote:     (u8, u8, u8),
-    pub listitem:  (u8, u8, u8),
-    pub preformat: (u8, u8, u8),
+pub struct Colors {
+    pub background: (u8, u8, u8),
+    pub ui:         (u8, u8, u8),
+    pub text:       (u8, u8, u8),
+    pub heading1:   (u8, u8, u8),
+    pub heading2:   (u8, u8, u8),
+    pub heading3:   (u8, u8, u8),
+    pub link:       (u8, u8, u8),
+    pub badlink:    (u8, u8, u8),
+    pub quote:      (u8, u8, u8),
+    pub listitem:   (u8, u8, u8),
+    pub preformat:  (u8, u8, u8),
 }
 #[derive(Deserialize, Debug, Clone)]
 pub struct Keys {
@@ -31,7 +33,7 @@ pub struct Keys {
 #[derive(Deserialize, Debug, Clone)]
 pub struct Config {
     pub init_url: String,
-    pub gemcolors: GemColors,
+    pub colors: Colors,
     pub keys: Keys,
 }
 impl Config {

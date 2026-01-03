@@ -1,12 +1,13 @@
 // ui
-// joins backend and frontend
 
 use crate::{
-    config::{Config},
-    geometry::{Rect},
-    tabserver::{TabServer},
+    config::{self, Config},
+    util::{Rect},
+    tab::{TabServer},
 };
 use crossterm::{
+    QueueableCommand, cursor, terminal,
+    style::Color,
     event::{Event, KeyEvent, KeyEventKind, KeyCode, KeyModifiers},
 };
 use std::{
@@ -21,10 +22,10 @@ pub enum View {
 }
 // coordinates activities between views
 pub struct UI {
-    rect: Rect,
-    view: View,
+    rect:   Rect,
+    view:   View,
     config: Config,
-    tabs: TabServer,
+    tabs:   TabServer,
 } 
 impl UI {
     // start with View::Tab
@@ -37,19 +38,23 @@ impl UI {
             view: View::Tab,
         }
     }
+
     // resize all views, maybe do this in parallel?
     fn resize(&mut self, w: u16, h: u16) {
         self.rect = Rect::new(0, 0, w, h);
         self.tabs.resize(&self.rect);
     }
+
     // display the current view
     pub fn view(&self, mut stdout: &Stdout) -> io::Result<()> {
+        stdout.queue(terminal::Clear(terminal::ClearType::All))?;
         match &self.view {
             View::Tab => self.tabs.view(stdout),
             _ => Ok(()),
         }?;
         stdout.flush()
     }
+
     // Resize and Control-C is handled here, 
     // otherwise delegate to current view
     pub fn update(&mut self, event: Event) -> bool {
@@ -81,6 +86,7 @@ impl UI {
             _ => false,
         }
     }
+
     // no need to derive PartialEq for View
     pub fn quit(&self) -> bool {
         match self.view {
@@ -89,3 +95,4 @@ impl UI {
         }
     }
 } 
+

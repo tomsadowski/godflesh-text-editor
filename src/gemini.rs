@@ -38,11 +38,12 @@ pub fn join_if_relative(base: &Url, url_str: &str) -> Result<Url, String> {
         Err(e) => Err(format!("{}", e)),
     }
 }
+
 pub struct GemDoc {
-    pub url: Url,
+    pub url:    Url,
     pub status: Status,
-    pub msg: String,
-    pub doc: Vec<(GemType, String)>,
+    pub msg:    String,
+    pub doc:    Vec<(GemType, String)>,
 }
 impl GemDoc {
     pub fn new(url: &Url) -> Self {
@@ -60,6 +61,7 @@ impl GemDoc {
         }
     }
 }
+
 #[derive(Clone, PartialEq, Debug)]
 pub enum GemType {
     HeadingOne,
@@ -90,11 +92,11 @@ pub fn parse_doc(text_str: &str, source: &Url) -> Vec<(GemType, String)> {
     }
     vec
 }
-fn parse_formatted<'a>(line: &'a str, source: &Url) -> (GemType, &'a str) {
+fn parse_formatted(line: &str, source: &Url) -> (GemType, String) {
     // look for 3 character symbols
     if let Some((symbol, text)) = line.split_at_checked(3) {
         if symbol == "###" {
-            return (GemType::HeadingThree, text)
+            return (GemType::HeadingThree, String::from(text))
         }
     }
     // look for 2 character symbols
@@ -103,26 +105,29 @@ fn parse_formatted<'a>(line: &'a str, source: &Url) -> (GemType, &'a str) {
             let (url_str, link_str) = util::split_whitespace_once(text);
             match join_if_relative(source, url_str) {
                 Ok(url) =>
-                    return (GemType::Link(parse_scheme(&url), url), link_str),
+                    return (
+                        GemType::Link(parse_scheme(&url), url), 
+                        String::from(link_str)),
                 Err(s) => 
-                    return (GemType::BadLink(s), link_str)
+                    return (GemType::BadLink(s), String::from(link_str))
             }
         } else if symbol == "##" {
-            return (GemType::HeadingTwo, text)
+            return (GemType::HeadingTwo, String::from(text))
         }
     }
     // look for 1 character symbols
     if let Some((symbol, text)) = line.split_at_checked(1) {
         if symbol == ">" {
-            return (GemType::Quote, text)
+            return (GemType::Quote, String::from(text))
         } else if symbol == "*" {
-            return (GemType::ListItem, text)
+            return (GemType::ListItem, format!("- {}", text))
         } else if symbol == "#" {
-            return (GemType::HeadingOne, text)
+            return (GemType::HeadingOne, String::from(text))
         }
     }
-    return (GemType::Text, line)
+    return (GemType::Text, String::from(line))
 }
+
 #[derive(Debug, Clone)]
 pub enum Status {
     InputExpected,
@@ -181,6 +186,7 @@ fn getstatus(code: u8) -> Result<Status, String> {
                 code)),
     }
 }
+
 // returns response and content
 pub fn get_data(url: &Url) -> Result<(String, String), String> {
     let host = url.host_str().unwrap_or("");

@@ -1,14 +1,13 @@
 // gem/src/main
 
 #![allow(dead_code)]
+#![allow(unused_imports)]
 
 mod gemini;     // frontend agnostic
 mod util;       // frontend agnostic
 mod widget;     // backend agnostic
-mod geometry;   // backend agnostic
 mod dialog;     // backend agnostic
 mod ui;         // joins backend and frontend
-mod tabserver;  // joins backend and frontend
 mod tab;        // joins backend and frontend
 mod config;     // keybindings, visuals
 

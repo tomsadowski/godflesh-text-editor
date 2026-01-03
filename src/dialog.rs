@@ -1,7 +1,7 @@
 // dialog
 
 use crate::{
-    geometry::{Rect},
+    util::{Rect},
     widget::{Selector},
 };
 use crossterm::{
@@ -9,7 +9,7 @@ use crossterm::{
     event::{KeyCode},
 };
 use std::{
-    io::{self, Stdout},
+    io::{self, Stdout, Write},
 };
 
 #[derive(Clone, Debug)]
@@ -23,6 +23,7 @@ impl InputType {
     pub fn input() -> Self {
         Self::Input(String::from(""))
     }
+
     // shortcut to create choosebox
     pub fn choose(vec: Vec<(char, &str)>) -> Self {
         Self::Choose(
@@ -31,6 +32,7 @@ impl InputType {
             .map(|(c, s)| (*c, s.to_string()))
             .collect())
     }
+
     pub fn update(&mut self, keycode: &KeyCode) -> Option<InputMsg> {
         match (self, keycode) {
             // Pressing Enter in a choosebox means nothing
@@ -68,6 +70,7 @@ impl InputType {
         }
     }
 }
+
 #[derive(Clone, Debug)]
 pub enum InputMsg {
     None,
@@ -75,9 +78,10 @@ pub enum InputMsg {
     Choose(char),
     Input(String),
 }
+
 #[derive(Clone, Debug)]
 pub struct InputBox {
-    pub selector: Selector,
+    pub selector:  Selector,
     pub inputtype: InputType,
 }
 impl InputBox {
@@ -100,25 +104,29 @@ impl InputBox {
             inputtype: inputtype,
         }
     }
+
     pub fn view(&self, stdout: &Stdout) -> io::Result<()> {
         self.selector.view(stdout)?;
         Ok(())
     }
+
     pub fn update(&mut self, keycode: &KeyCode) -> Option<InputMsg> {
         self.inputtype.update(keycode)
     }
 }
+
 #[derive(Clone, Debug)]
 pub enum DialogMsg<T> {
     None,
     Cancel,
     Submit(T, InputMsg),
 }
+
 #[derive(Clone, Debug)]
 pub struct Dialog<T> {
-    rect: Rect,
-    prompt: String,
-    pub action: T,
+    rect:         Rect,
+    prompt:       String,
+    pub action:   T,
     pub inputbox: InputBox,
 }
 impl<T: Clone + std::fmt::Debug> Dialog<T> {
@@ -134,18 +142,20 @@ impl<T: Clone + std::fmt::Debug> Dialog<T> {
             prompt: String::from(prompt), 
         }
     }
+
     pub fn view(&self, mut stdout: &Stdout) -> io::Result<()> {
-        stdout
-            .queue(cursor::MoveTo(self.rect.x + 2, self.rect.y + 2))?
-            .queue(style::Print(self.prompt.as_str()))?
-            .queue(cursor::MoveTo(self.rect.x + 2, self.rect.y + 4))?;
         self.inputbox.view(stdout)?;
-        Ok(())
+        stdout
+            .queue(cursor::MoveTo(self.rect.x + 2, self.rect.y + 8))?
+            .queue(style::Print(self.prompt.as_str()))?
+            .flush()
     }
+
     // No wrapping yet, so resize is straightforward
     pub fn resize(&mut self, rect: &Rect) {
         self.rect = rect.clone();
     }
+
     // Keycode has various meanings depending on the InputType.
     // The match statement might be moved to impl InputType
     pub fn update(&mut self, keycode: &KeyCode) -> Option<DialogMsg<T>> {
