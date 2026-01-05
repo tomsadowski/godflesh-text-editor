@@ -30,7 +30,7 @@ pub struct UI {
 impl UI {
     // start with View::Tab
     pub fn new(config: &Config, w: u16, h: u16) -> Self {
-        let rect = Rect::new(0, 0, w, h);
+        let rect = Rect {x: 0, y: 0, w: w, h: h};
         Self {
             tabs: TabServer::new(&rect, config),
             rect: rect,
@@ -38,13 +38,11 @@ impl UI {
             view: View::Tab,
         }
     }
-
     // resize all views, maybe do this in parallel?
     fn resize(&mut self, w: u16, h: u16) {
-        self.rect = Rect::new(0, 0, w, h);
+        self.rect = Rect {x: 0, y: 0, w: w, h: h};
         self.tabs.resize(&self.rect);
     }
-
     // display the current view
     pub fn view(&self, mut stdout: &Stdout) -> io::Result<()> {
         stdout.queue(terminal::Clear(terminal::ClearType::All))?;
@@ -54,7 +52,6 @@ impl UI {
         }?;
         stdout.flush()
     }
-
     // Resize and Control-C is handled here, 
     // otherwise delegate to current view
     pub fn update(&mut self, event: Event) -> bool {
@@ -86,7 +83,6 @@ impl UI {
             _ => false,
         }
     }
-
     // no need to derive PartialEq for View
     pub fn quit(&self) -> bool {
         match self.view {
@@ -95,4 +91,3 @@ impl UI {
         }
     }
 } 
-

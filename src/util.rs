@@ -8,17 +8,11 @@ pub struct Rect {
     pub w: u16, 
     pub h: u16,
 }
-impl Rect {
-    pub fn new(x: u16, y: u16, w: u16, h: u16) -> Self {
-        Self {x: x, y: y, w: w, h: h}
-    }
-}
-
 #[derive(Clone, Debug)]
 pub struct Cursor {
-    cur: u16,
-    min: u16,
-    max: u16,
+    pub cur: u16,
+    pub min: u16,
+    pub max: u16,
 }
 impl Cursor {
     // sets limits given length of text and rect
@@ -44,37 +38,26 @@ impl Cursor {
         if (self.min + step) <= self.cur {
             self.cur -= step; 
             true
-        } else {
-            false
-        }
+        } else { false }
     }
     pub fn movedown(&mut self, step: u16) -> bool {
         if (self.cur + step) <= (self.min + self.max - 1) {
             self.cur += step; 
             true 
-        } else {
-            false
-        }
-    }
-    pub fn getcursor(&self) -> u16 {
-        self.cur
-    }
-    pub fn getmaxcursor(&self) -> u16 {
-        self.max
+        } else { false }
     }
     // index of cursor within its rect
     pub fn getindex(&self) -> usize {
         usize::from(self.cur - self.min)
     }
 }
-
 // scroll over data when cursor position is at a limit
 // defined by rect
 #[derive(Clone, Debug)]
 pub struct ScrollingCursor {
-    cursor:    Cursor,
-    scroll:    usize,
-    maxscroll: usize,
+    pub cursor:    Cursor,
+    pub scroll:    usize,
+    pub maxscroll: usize,
 }
 impl ScrollingCursor {
     // sets limits given length of text and rect
@@ -100,9 +83,7 @@ impl ScrollingCursor {
         } else if usize::MIN + scrollstep <= self.scroll {
             self.scroll -= scrollstep; 
             true
-        } else {
-            false
-        }
+        } else { false }
     }
     // scroll down when cursor is at lowest position
     pub fn movedown(&mut self, step: u16) -> bool {
@@ -112,9 +93,7 @@ impl ScrollingCursor {
         } else if (self.scroll + scrollstep) <= self.maxscroll {
             self.scroll += scrollstep; 
             true
-        } else {
-            false
-        }
+        } else { false }
     }
     // index of cursor within its rect
     pub fn getcursor(&self) -> u16 {
@@ -136,9 +115,10 @@ impl ScrollingCursor {
         (self.scroll, self.scroll + usize::from(self.cursor.max))
     }
 }
-
 // call wrap for each element in the list
-pub fn wraplist(lines: &Vec<String>, w: u16) -> Vec<(usize, String)> {
+pub fn wraplist(lines: &Vec<String>, w: u16) 
+    -> Vec<(usize, String)> 
+{
     let mut display: Vec<(usize, String)> = vec![];
     for (i, l) in lines.iter().enumerate() {
         let v = wrap(l, w);
@@ -148,7 +128,6 @@ pub fn wraplist(lines: &Vec<String>, w: u16) -> Vec<(usize, String)> {
     }
     display
 }
-
 // wrap text in terminal
 pub fn wrap(line: &str, screenwidth: u16) -> Vec<String> {
     let width = usize::from(screenwidth);
@@ -188,7 +167,6 @@ pub fn wrap(line: &str, screenwidth: u16) -> Vec<String> {
     }
     wrapped
 }
-
 pub fn split_whitespace_once(source: &str) -> (&str, &str) {
     let line = source.trim();
     let (a, b) = {

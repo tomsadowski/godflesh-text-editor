@@ -28,16 +28,16 @@ pub struct TabServer {
 }
 impl TabServer {
     pub fn new(r: &Rect, config: &Config) -> Self {
-        let rect = Rect::new(
-            r.x + config.format.margin as u16, 
-            r.y + 2, 
-            r.w - (config.format.margin*2) as u16,
-            r.h - 2);
-        // TODO produce dialog if failed url
+        let rect = Rect {
+            x: r.x + config.format.margin as u16, 
+            y: r.y + 2, 
+            w: r.w - (config.format.margin*2) as u16,
+            h: r.h - 2
+        };
         let url = Url::parse(&config.init_url).unwrap();
         let doc = GemDoc::new(&url);
         Self {
-            bgcolor:    getbackground(&config.colors),
+            bgcolor:    config::getbackground(&config.colors),
             rect:       rect.clone(),
             config:     config.clone(),
             tabs:       vec![Tab::new(&rect, doc, config)],
@@ -46,20 +46,19 @@ impl TabServer {
             bannerline: bannerline(rect.w),
         }
     }
-
     // adjust length of banner line, resize all tabs
     pub fn resize(&mut self, r: &Rect) {
-        self.rect = Rect::new(
-            r.x + self.config.format.margin as u16, 
-            r.y + 2, 
-            r.w - (self.config.format.margin*2) as u16, 
-            r.h - 2);
+        self.rect = Rect {
+            x: r.x + self.config.format.margin as u16, 
+            y: r.y + 2, 
+            w: r.w - (self.config.format.margin*2) as u16, 
+            h: r.h - 2
+        };
         self.bannerline = bannerline(self.rect.w);
         for d in self.tabs.iter_mut() {
             d.resize(&self.rect);
         }
     }
-
     // display banner and page
     pub fn view(&self, mut stdout: &Stdout) -> io::Result<()> {
         stdout
@@ -72,7 +71,6 @@ impl TabServer {
             .queue(style::Print(&self.bannerline.text))?;
         self.tabs[self.curindex].view(stdout)
     }
-
     // send keycode to current tab and process response
     pub fn update(&mut self, keycode: &KeyCode) -> bool {
         match self.tabs[self.curindex].update(keycode) {
@@ -80,7 +78,8 @@ impl TabServer {
                 match msg {
                     TabMsg::Go(url) => {
                         let doc = GemDoc::new(&url);
-                        self.tabs.push(Tab::new(&self.rect, doc, &self.config));
+                        self.tabs.push(
+                            Tab::new(&self.rect, doc, &self.config));
                         self.curindex = self.tabs.len() - 1;
                     }
                     TabMsg::DeleteMe => {
@@ -91,7 +90,8 @@ impl TabServer {
                     }
                     TabMsg::CycleLeft => {
                         match self.curindex == 0 {
-                            true => self.curindex = self.tabs.len() - 1,
+                            true => 
+                                self.curindex = self.tabs.len() - 1,
                             false => self.curindex -= 1,
                         }
                     }
@@ -105,7 +105,8 @@ impl TabServer {
                 }
                 let len = self.tabs.len();
                 let url = &self.tabs[self.curindex].doc.url;
-                self.bannertext = bannertext(self.curindex, len, url);
+                self.bannertext = 
+                    bannertext(self.curindex, len, url);
                 self.bannerline = bannerline(self.rect.w);
                 true
             }
@@ -113,7 +114,6 @@ impl TabServer {
         }
     }
 }
-
 #[derive(Clone, Debug)]
 pub enum TabMsg {
     Quit,
@@ -131,18 +131,19 @@ pub struct Tab {
     page:     Selector,
 }
 impl Tab {
-    pub fn new(rect: &Rect, gemdoc: GemDoc, config: &Config) -> Self {
+    pub fn new(rect: &Rect, gemdoc: GemDoc, config: &Config) 
+        -> Self 
+    {
         Self {
             config: config.clone(),
             rect: rect.clone(),
             dlgstack: vec![],
             page: Selector::new(
                 rect, 
-                &getvec(&gemdoc.doc, &config.colors)),
+                &config::getvec(&gemdoc.doc, &config.colors)),
             doc: gemdoc,
         }
     }
-
     // resize page and all dialogs
     pub fn resize(&mut self, rect: &Rect) {
         self.rect = rect.clone();
@@ -151,7 +152,6 @@ impl Tab {
             d.resize(&rect);
         }
     }
-
     // show dialog if there's a dialog, otherwise show page
     pub fn view(&self, stdout: &Stdout) -> io::Result<()> {
         match self.dlgstack.last() {
@@ -159,7 +159,6 @@ impl Tab {
             _ => self.page.view(stdout),
         }
     }
-
     pub fn update(&mut self, keycode: &KeyCode) -> Option<TabMsg> {
         // send keycode to dialog if there is a dialog
         if let Some(d) = self.dlgstack.last_mut() {
@@ -229,7 +228,9 @@ impl Tab {
             }
             else if c == &self.config.keys.inspect_under_cursor {
                 let dialog = 
-                    match &self.doc.doc[self.page.selectundercursor().0].0 {
+                    match &self.doc
+                        .doc[self.page.selectundercursor().0].0 
+                    {
                         GemType::Link(_, url) => 
                             Dialog::new(
                                 &self.rect,
@@ -255,81 +256,12 @@ impl Tab {
         }
     }
 }
-
-pub fn getbackground(config: &config::Colors) -> Color {
-    Color::Rgb {
-        r: config.background.0,
-        g: config.background.1,
-        b: config.background.2,
-    }
-}
-
-pub fn getvec(vec: &Vec<(GemType, String)>, 
-              config: &config::Colors) -> Vec<ColoredText> 
+pub fn bannertext(curindex: usize, totaltab: usize, url: &Url) 
+    -> ColoredText 
 {
-    vec
-        .iter()
-        .map(|(g, s)| getcoloredgem(g, &s, config))
-        .collect()
+    ColoredText::white(
+        &format!("{}/{}: {}", curindex + 1, totaltab, url))
 }
-
-pub fn getcoloredgem(gem: &GemType, 
-                     text: &str, 
-                     config: &config::Colors) -> ColoredText {
-    let color = match gem {
-        GemType::HeadingOne => 
-            Color::Rgb {
-                r: config.heading1.0, 
-                g: config.heading1.1, 
-                b: config.heading1.2},
-        GemType::HeadingTwo => 
-            Color::Rgb {
-                r: config.heading2.0, 
-                g: config.heading2.1, 
-                b: config.heading2.2},
-        GemType::HeadingThree => 
-            Color::Rgb {
-                r: config.heading3.0, 
-                g: config.heading3.1, 
-                b: config.heading3.2},
-        GemType::Text => 
-            Color::Rgb {
-                r: config.text.0, 
-                g: config.text.1, 
-                b: config.text.2},
-        GemType::Quote => 
-            Color::Rgb {
-                r: config.quote.0, 
-                g: config.quote.1, 
-                b: config.quote.2},
-        GemType::ListItem => 
-            Color::Rgb {
-                r: config.listitem.0, 
-                g: config.listitem.1, 
-                b: config.listitem.2},
-        GemType::PreFormat => 
-            Color::Rgb {
-                r: config.preformat.0, 
-                g: config.preformat.1, 
-                b: config.preformat.2},
-        GemType::Link(_, _) => 
-            Color::Rgb {
-                r: config.link.0, 
-                g: config.link.1, 
-                b: config.link.2},
-        GemType::BadLink(_) => 
-            Color::Rgb {
-                r: config.badlink.0, 
-                g: config.badlink.1, 
-                b: config.badlink.2},
-    };
-    ColoredText::new(text, color)
-}
-
-pub fn bannertext(curindex: usize, totaltab: usize, url: &Url) -> ColoredText {
-    ColoredText::white(&format!("{}/{}: {}", curindex + 1, totaltab, url))
-}
-
 pub fn bannerline(w: u16) -> ColoredText {
     ColoredText::white(&String::from("-").repeat(usize::from(w)))
 }

@@ -26,12 +26,9 @@ use std::{
 fn main() -> io::Result<()> {
     let configtext = fs::read_to_string("gem.toml").unwrap();
     let config = Config::new(configtext.as_str());
-    
     let (w, h) = terminal::size()?;
-
     let mut ui = UI::new(&config, w, h);
     let mut stdout = stdout();
-
     terminal::enable_raw_mode()?;
     stdout
         .queue(terminal::EnterAlternateScreen)?
@@ -39,14 +36,12 @@ fn main() -> io::Result<()> {
         .queue(cursor::Show)?;
     stdout.flush()?;
     ui.view(&stdout)?;
-
     // main loop
     while !ui.quit() {
         if ui.update(event::read()?) {
             ui.view(&stdout)?;
         }
     }
-
     // clean up
     terminal::disable_raw_mode()?;
     stdout.queue(terminal::LeaveAlternateScreen)?;
