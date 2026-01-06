@@ -32,10 +32,10 @@ impl UI {
     pub fn new(config: &Config, w: u16, h: u16) -> Self {
         let rect = Rect {x: 0, y: 0, w: w, h: h};
         Self {
-            tabs: TabServer::new(&rect, config),
-            rect: rect,
+            tabs:   TabServer::new(&rect, config),
+            rect:   rect,
             config: config.clone(),
-            view: View::Tab,
+            view:   View::Tab,
         }
     }
     // resize all views, maybe do this in parallel?
@@ -60,22 +60,18 @@ impl UI {
                 self.resize(w, h); 
                 true
             }
-            Event::Key(
-                KeyEvent {
-                    code: KeyCode::Char('c'),
-                    modifiers: KeyModifiers::CONTROL,
-                    kind: KeyEventKind::Press, ..
-                }
-            ) => {
+            Event::Key(KeyEvent {
+                code: KeyCode::Char('c'),
+                modifiers: KeyModifiers::CONTROL,
+                kind: KeyEventKind::Press, ..
+            }) => {
                 self.view = View::Quit;
                 true
             }
-            Event::Key(
-                KeyEvent {
-                    code: keycode, 
-                    kind: KeyEventKind::Press, ..
-                }
-            ) => 
+            Event::Key(KeyEvent {
+                code: keycode, 
+                kind: KeyEventKind::Press, ..
+            }) => 
                 match &self.view {
                     View::Tab => self.tabs.update(&keycode),
                     _ => false,

@@ -52,19 +52,19 @@ impl Selector {
         Self::new(rect, &white)
     }
     pub fn new(rect: &Rect, source: &Vec<ColoredText>) -> Self {
-        let display = util::wraplist(
+        let display = util::wrap_list(
             &source.iter().map(|ct| ct.text.clone()).collect(),
             rect.w);
         return Self {
             rect:    rect.clone(),
-            cursor:  ScrollingCursor::new(display.len(), &rect),
+            cursor:  ScrollingCursor::new(display.len(), &rect, 3),
             source:  source.clone(),
             display: display,
         }
     }
     pub fn resize(&mut self, rect: &Rect) {
         self.rect = rect.clone();
-        self.display = util::wraplist(
+        self.display = util::wrap_list(
             &self.source.iter().map(|ct| ct.text.clone()).collect(),
             rect.w);
         self.cursor.resize(self.display.len(), rect);
@@ -72,12 +72,12 @@ impl Selector {
     pub fn view(&self, mut stdout: &Stdout) -> io::Result<()> {
         stdout.queue(cursor::Hide)?;
 
-        let (a, b) = self.cursor.getdisplayrange();
+        let (a, b) = self.cursor.get_display_range();
         for (j, (i, text)) in self.display[a..b].iter().enumerate() {
             stdout
                 .queue(cursor::MoveTo(
                         self.rect.x, 
-                        self.cursor.getscreenstart() + j as u16))?
+                        self.cursor.get_screen_start() + j as u16))?
                 .queue(style::SetForegroundColor(
                         self.source[*i].color))?
                 .queue(style::Print(text.as_str()))?;
@@ -85,12 +85,12 @@ impl Selector {
         stdout
             .queue(cursor::MoveTo(
                 self.rect.x, 
-                self.cursor.getcursor()))?
+                self.cursor.get_cursor()))?
             .queue(cursor::Show)?
             .flush()
     }
-    pub fn selectundercursor(&self) -> (usize, &str) {
-        let index = self.display[self.cursor.getindex()].0;
+    pub fn select_under_cursor(&self) -> (usize, &str) {
+        let index = self.display[self.cursor.get_index()].0;
         (index, &self.source[index].text)
     }
 } 

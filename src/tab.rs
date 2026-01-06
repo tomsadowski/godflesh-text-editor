@@ -31,7 +31,7 @@ impl TabServer {
         let rect = Rect {
             x: r.x + config.format.margin as u16, 
             y: r.y + 2, 
-            w: r.w - (config.format.margin*2) as u16,
+            w: r.w - (config.format.margin * 2) as u16,
             h: r.h - 2
         };
         let url = Url::parse(&config.init_url).unwrap();
@@ -51,7 +51,7 @@ impl TabServer {
         self.rect = Rect {
             x: r.x + self.config.format.margin as u16, 
             y: r.y + 2, 
-            w: r.w - (self.config.format.margin*2) as u16, 
+            w: r.w - (self.config.format.margin * 2) as u16, 
             h: r.h - 2
         };
         self.bannerline = bannerline(self.rect.w);
@@ -190,11 +190,11 @@ impl Tab {
         // there is no dialog, process keycode here
         else if let KeyCode::Char(c) = keycode {
             if c == &self.config.keys.move_cursor_down {
-                self.page.cursor.movedown(1);
+                self.page.cursor.move_down(1);
                 return Some(TabMsg::None)
             }
             else if c == &self.config.keys.move_cursor_up {
-                self.page.cursor.moveup(1);
+                self.page.cursor.move_up(1);
                 return Some(TabMsg::None)
             }
             else if c == &self.config.keys.cycle_to_left_tab {
@@ -229,7 +229,7 @@ impl Tab {
             else if c == &self.config.keys.inspect_under_cursor {
                 let dialog = 
                     match &self.doc
-                        .doc[self.page.selectundercursor().0].0 
+                        .doc[self.page.select_under_cursor().0].0 
                     {
                         GemType::Link(_, url) => 
                             Dialog::new(
