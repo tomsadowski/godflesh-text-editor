@@ -86,7 +86,7 @@ impl ScrollingCursor {
         self.cursor    = (self.outer.start() + self.outer.end() - 1) / 2;
     }
     pub fn move_up(&mut self, mut step: usize) -> bool {
-        // cursor is bounded only by outer_rng
+        // cursor is bounded only by outer
         if self.scroll == usize::MIN {
             if self.cursor == self.outer.start() {
                 return false
@@ -95,13 +95,13 @@ impl ScrollingCursor {
             } else {
                 self.cursor = self.outer.start();
             }
-        // cursor is bounded by inner_rng
+        // cursor is bounded by inner
         } else if (self.inner.start() + step) <= self.cursor {
             self.cursor -= step; 
         // cursor must move, then scroll, then maybe move again
         } else {
             // lower step by the amount to move cursor
-            step -= self.inner.start() - self.cursor;
+            step -= self.cursor - self.inner.start();
             // move cursor
             self.cursor = self.inner.start();
             // the rest of step is accomplished with scroll alone
@@ -122,7 +122,7 @@ impl ScrollingCursor {
         return true
     }
     pub fn move_down(&mut self, mut step: usize) -> bool {
-        // cursor is bounded only by outer_rng
+        // cursor is bounded only by outer
         if self.scroll == self.maxscroll {
             if self.cursor == self.outer.end() - 1 {
                 return false
@@ -131,7 +131,7 @@ impl ScrollingCursor {
             } else {
                 self.cursor = self.outer.end() - 1;
             }
-        // cursor is bounded by inner_rng
+        // cursor is bounded by inner
         } else if (self.cursor + step) <= self.inner.end() {
             self.cursor += step;
         // cursor must move, then scroll, then it maybe move again
