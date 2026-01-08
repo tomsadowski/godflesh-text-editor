@@ -79,6 +79,13 @@ impl TabServer {
                             Tab::new(&self.rect, doc, &self.config));
                         self.curindex = self.tabs.len() - 1;
                     }
+                    TabMsg::Open(text) => {
+                        let url = Url::parse(&text).unwrap();
+                        let doc = GemDoc::new(&url);
+                        self.tabs.push(
+                            Tab::new(&self.rect, doc, &self.config));
+                        self.curindex = self.tabs.len() - 1;
+                    }
                     TabMsg::DeleteMe => {
                         if self.tabs.len() > 1 {
                             self.tabs.remove(self.curindex);
@@ -119,6 +126,8 @@ pub enum TabMsg {
     CycleRight,
     DeleteMe,
     Acknowledge,
+    NewTab,
+    Open(String),
     Go(Url),
 }
 pub struct Tab {
@@ -173,9 +182,14 @@ impl Tab {
                     self.dlgstack.pop();
                     return msg
                 }
-                Some(InputMsg::Text(_)) => {
+                Some(InputMsg::Text(text)) => {
+                    let msg = match m {
+                        TabMsg::NewTab => 
+                            Some(TabMsg::Open(text)),
+                        _ => Some(TabMsg::None),
+                    };
                     self.dlgstack.pop();
-                    return Some(TabMsg::None)
+                    return msg
                 }
                 Some(InputMsg::Cancel) => {
                     self.dlgstack.pop();
@@ -222,7 +236,7 @@ impl Tab {
             else if c == &self.config.keys.new_tab {
                 let dialog = 
                     Dialog::text(&self.rect, "enter path: ");
-                self.dlgstack.push((TabMsg::Acknowledge, dialog));
+                self.dlgstack.push((TabMsg::NewTab, dialog));
                 return Some(TabMsg::None)
             }
             else if c == &self.config.keys.inspect_under_cursor {
