@@ -13,13 +13,11 @@ use std::{
 };
 
 #[derive(Clone, Debug)]
-pub struct ChooseBox {
-    pub src: Vec<(char, String)>,
-    pub wid: Selector,
-}
-#[derive(Clone, Debug)]
 pub enum InputType {
-    Choose(ChooseBox),
+    Choose {
+        src: Vec<(char, String)>,
+        sel: Selector,
+    },
     Text(CursorText),
 }
 impl InputType {
@@ -56,9 +54,9 @@ impl InputType {
                 cursortext.insert(*c);
                 Some(InputMsg::None)
             }
-            (InputType::Choose(t), KeyCode::Char(c)) => {
+            (InputType::Choose {src, ..}, KeyCode::Char(c)) => {
                 let chars: Vec<char> = 
-                    t.src.iter().map(|e| e.0).collect();
+                    src.iter().map(|e| e.0).collect();
                 match chars.contains(&c) {
                     true => Some(InputMsg::Choose(*c)),
                     false => None,
@@ -93,19 +91,19 @@ impl Dialog {
         -> Self
     {
         let choose_vec = choose.iter()
-                .map(|(c, s)| (*c, s.to_string()))
-                .collect();
+                .map(|(c, s)| (*c, s.to_string())).collect();
         let selector_vec = choose.iter()
-                .map(|(x, y)| format!("|{}|  {}", x, y))
-                .collect();
-        let selector_rect = 
-            Rect {x: rect.x, y: rect.y + 8, w: rect.w, h: rect.h - 8};
+                .map(|(x, y)| format!("|{}|  {}", x, y)).collect();
+        let selector_rect = Rect {  x: rect.x, 
+                                    y: rect.y + 8, 
+                                    w: rect.w, 
+                                    h: rect.h - 8   };
         let selector = Selector::white(&selector_rect, &selector_vec);
-        let choose_box = ChooseBox {src: choose_vec, wid: selector};
         Self {
             rect:       rect.clone(),
             prompt:     String::from(prompt), 
-            input_type: InputType::Choose(choose_box),
+            input_type: InputType::Choose { src: choose_vec, 
+                                            sel: selector   },
         }
     }
     pub fn view(&self, mut stdout: &Stdout) -> io::Result<()> {
@@ -113,8 +111,8 @@ impl Dialog {
             .queue(cursor::MoveTo(self.rect.x, self.rect.y + 4))?
             .queue(style::Print(self.prompt.as_str()))?;
         match &self.input_type {
-            InputType::Choose(choosebox) => {
-                choosebox.wid.view(stdout)
+            InputType::Choose {sel, ..} => {
+                sel.view(stdout)
             }
             InputType::Text(cursortext) => {
                 cursortext.view(self.rect.y + 8, stdout)
@@ -125,8 +123,8 @@ impl Dialog {
     pub fn resize(&mut self, rect: &Rect) {
         self.rect = rect.clone();
         match &mut self.input_type {
-            InputType::Choose(choosebox) => {
-                choosebox.wid.resize(&self.rect)
+            InputType::Choose {sel, ..} => {
+                sel.resize(&self.rect)
             }
             InputType::Text(cursortext) => {
                 cursortext.resize(&self.rect)
