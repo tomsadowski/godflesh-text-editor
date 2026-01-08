@@ -28,10 +28,6 @@ impl InputType {
             (InputType::Text(cursortext), KeyCode::Enter) => {
                 Some(InputMsg::Text(cursortext.get_text()))
             }
-            (InputType::Text(cursortext), KeyCode::Char(c)) => {
-                cursortext.insert(*c);
-                Some(InputMsg::None)
-            }
             (InputType::Text(cursortext), KeyCode::Left) => {
                 match cursortext.move_left(1) {
                     true => Some(InputMsg::None),
@@ -55,6 +51,10 @@ impl InputType {
                     true => Some(InputMsg::None),
                     false => None,
                 }
+            }
+            (InputType::Text(cursortext), KeyCode::Char(c)) => {
+                cursortext.insert(*c);
+                Some(InputMsg::None)
             }
             (InputType::Choose(t), KeyCode::Char(c)) => {
                 let chars: Vec<char> = 
@@ -86,7 +86,7 @@ impl Dialog {
         Self {
             rect:       rect.clone(),
             prompt:     String::from(prompt), 
-            input_type: InputType::Text(CursorText::new(rect, "tet")),
+            input_type: InputType::Text(CursorText::new(rect, "")),
         }
     }
     pub fn choose(rect: &Rect, prompt: &str, choose: Vec<(char, &str)>) 

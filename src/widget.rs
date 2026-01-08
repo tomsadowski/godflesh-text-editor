@@ -94,7 +94,11 @@ impl CursorText {
         }
     }
     pub fn insert(&mut self, c: char) -> bool {
-        self.text.insert(self.cursor.get_index(), c);
+        if self.cursor.get_index() + 1 == self.text.len() {
+            self.text.push(c);
+        } else {
+            self.text.insert(self.cursor.get_index(), c);
+        }
         self.cursor.resize(self.text.len(), &self.range);
         self.cursor.move_down(1);
         true
