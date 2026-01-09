@@ -1,6 +1,6 @@
 // gemini
 
-use crate::util;
+use crate::common;
 use url::{
     Url, ParseError
 };
@@ -52,7 +52,11 @@ impl GemDoc {
         let (status, msg) = parse_status(&response).unwrap();
         let doc = match status {
             Status::Success => parse_doc(&content, url),
-            _ => vec![(GemType::Text, format!("Not a success"))],
+            _ => {
+                let msg = 
+                    format!("response: status: {:?}, msg: {}", status, msg);
+                vec![(GemType::Text, msg)]
+            }
         };
         Self {
             url: url.clone(),
@@ -106,7 +110,7 @@ fn parse_formatted(line: &str, source: &Url) -> (GemType, String) {
     if let Some((symbol, text)) = line.split_at_checked(2) {
         if symbol == "=>" {
             let (url_str, link_str) = 
-                util::split_whitespace_once(text);
+                common::split_whitespace_once(text);
             match join_if_relative(source, url_str) {
                 Ok(url) =>
                     return (
@@ -157,7 +161,7 @@ pub enum Status {
     ExpiredCertRejected,     
 }
 pub fn parse_status(line: &str) -> Result<(Status, String), String> {
-    let (code, message) = util::split_whitespace_once(line);
+    let (code, message) = common::split_whitespace_once(line);
     let status = getstatus(code.parse().unwrap()).unwrap();
     Ok((status, String::from(message)))
 }

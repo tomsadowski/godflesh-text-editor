@@ -16,7 +16,7 @@ listitem   = [100, 200, 100]
 badlink    = [ 60,  60, 200]
 
 [format]
-margin     = 8
+margin     = 2
 listbullet = " - "
 
 [keys]
