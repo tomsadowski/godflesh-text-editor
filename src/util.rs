@@ -9,11 +9,34 @@ pub struct Rect {
     pub h: u16,
 }
 impl Rect {
-    pub fn verticle(&self) -> Result<Range, String> {
-        Range::new(usize::from(self.y), usize::from(self.y + self.h))
+    pub fn origin(w: u16, h: u16) -> Self {
+        Self {x: 0, y: 0, w: w, h: h}
+    }
+    pub fn mid_x(&self) -> u16 {
+        self.x + (self.w / 2)
+    }
+    pub fn mid_y(&self) -> u16 {
+        self.y + (self.h / 2)
+    }
+    pub fn quarter_x(&self) -> Result<Range, String> {
+        let start = self.x + (self.w / 4);
+        let end   = self.x + (self.w - (self.w / 4));
+        Range::new(usize::from(start), usize::from(end))
+    }
+    pub fn quarter_y(&self) -> Result<Range, String> {
+        let start = self.y + (self.h / 4);
+        let end   = self.y + (self.h - (self.h / 4));
+        Range::new(usize::from(start), usize::from(end))
     }
     pub fn horizontal(&self) -> Result<Range, String> {
-        Range::new(usize::from(self.x), usize::from(self.x + self.w))
+        let start = self.x;
+        let end   = self.x + self.w;
+        Range::new(usize::from(start), usize::from(end))
+    }
+    pub fn verticle(&self) -> Result<Range, String> {
+        let start = self.y;
+        let end   = self.y + self.h;
+        Range::new(usize::from(start), usize::from(end))
     }
 }
 #[derive(Clone, Debug)]
