@@ -51,7 +51,8 @@ impl GemDoc {
         let (status, msg) = 
             parse_status(&response).map_err(|e| e.to_string())?;
         let doc = match status {
-            Status::Success => parse_doc(&content, url),
+            Status::Success => 
+                parse_doc(&content, url),
             _ => {
                 let msg = 
                     format!("response: status: {:?}, msg: {}", status, msg);
