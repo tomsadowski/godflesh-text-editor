@@ -56,13 +56,13 @@ impl Keys {
         Self {
             yes:                    'y',
             no:                     'n',
-            move_cursor_up:         'j',
-            move_cursor_down:       'k',
-            cycle_to_left_tab:      'h',
-            cycle_to_right_tab:     'l',
-            inspect_under_cursor:   'i',
-            delete_current_tab:     'd',
-            new_tab:                't',
+            move_cursor_up:         'o',
+            move_cursor_down:       'i',
+            cycle_to_left_tab:      'e',
+            cycle_to_right_tab:     'n',
+            inspect_under_cursor:   'w',
+            delete_current_tab:     'v',
+            new_tab:                'p',
         }
     }
 }
@@ -97,16 +97,23 @@ impl Colors {
     pub fn default() -> Self {
         Self {
             background: (205, 205, 205),
-            ui:         (205, 205, 205),
-            text:       (205, 205, 205),
-            heading1:   (205, 205, 205),
-            heading2:   (205, 205, 205),
-            heading3:   (205, 205, 205),
-            link:       (205, 205, 205),
-            badlink:    (205, 205, 205),
-            quote:      (205, 205, 205),
-            listitem:   (205, 205, 205),
-            preformat:  (205, 205, 205),
+            ui:         (  0,   0,   0),
+            text:       (  0,   0,   0),
+            heading1:   (  0,   0,   0),
+            heading2:   (  0,   0,   0),
+            heading3:   (  0,   0,   0),
+            link:       (  0,   0,   0),
+            badlink:    (  0,   0,   0),
+            quote:      (  0,   0,   0),
+            listitem:   (  0,   0,   0),
+            preformat:  (  0,   0,   0),
+        }
+    }
+    pub fn get_ui(&self) -> Color {
+        Color::Rgb {
+            r: self.ui.0,
+            g: self.ui.1,
+            b: self.ui.2,
         }
     }
     pub fn get_background(&self) -> Color {

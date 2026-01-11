@@ -3,10 +3,10 @@ init_url  = "gemini://geminiprotocol.net/"
 scroll_at = 3
 
 [colors]
-background = [ 17,  17,  17]
+background = [205, 205, 205]
 ui         = [ 80, 180, 180]
 link       = [100, 200, 200]
-text       = [200, 200, 200]
+text       = [  0,   0,   0]
 preformat  = [200, 200, 200]
 quote      = [200, 200, 200]
 heading1   = [240, 100, 120]

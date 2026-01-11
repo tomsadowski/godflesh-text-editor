@@ -68,7 +68,7 @@ impl UI {
     }
     // start with View::Tab
     pub fn new(path: &str, w: u16, h: u16) -> Self {
-        let rect = Rect {x: 0, y: 0, w: w, h: h};
+        let rect = Rect::origin(w, h);
         let cfg = Self::load_config(path);
         Self {
             tabs:     TabServer::new(&rect, &cfg),
@@ -81,7 +81,7 @@ impl UI {
     }
     // resize all views, maybe do this in parallel?
     fn resize(&mut self, w: u16, h: u16) {
-        self.rect = Rect {x: 0, y: 0, w: w, h: h};
+        self.rect = Rect::origin(w, h);
         self.tabs.resize(&self.rect);
     }
     // display the current view
@@ -171,14 +171,14 @@ impl TabServer {
             cfg:      cfg.clone(),
             tabs:     vec![Tab::new(&rect, &cfg.init_url, cfg)],
             idx:      0,
-            hdr_text: Self::get_hdr_text(0, 1, &cfg.init_url),
-            hdr_line: Self::get_hdr_line(rect.w),
+            hdr_text: Self::get_hdr_text(rect.w, &cfg, 0, 1, &cfg.init_url),
+            hdr_line: Self::get_hdr_line(rect.w, &cfg),
         }
     }
     // adjust length of banner line, resize all tabs
     pub fn resize(&mut self, rect: &Rect) {
         self.rect     = Self::get_rect(rect, &self.cfg);
-        self.hdr_line = Self::get_hdr_line(self.rect.w);
+        self.hdr_line = Self::get_hdr_line(self.rect.w, &self.cfg);
         for tab in self.tabs.iter_mut() {
             tab.resize(&self.rect);
         }
@@ -218,8 +218,9 @@ impl TabServer {
             }
             let len = self.tabs.len();
             let url = self.tabs[self.idx].get_url();
-            self.hdr_text = Self::get_hdr_text(self.idx, len, url);
-            self.hdr_line = Self::get_hdr_line(self.rect.w);
+            self.hdr_text = 
+                Self::get_hdr_text(self.rect.w, &self.cfg, self.idx, len, &url);
+            self.hdr_line = Self::get_hdr_line(self.rect.w, &self.cfg);
             Some(ViewMsg::None)
         } else {
             None
@@ -239,7 +240,7 @@ impl TabServer {
     pub fn update_cfg(&mut self, cfg: &Config) {
         self.cfg      = cfg.clone();
         self.rect     = Self::get_rect(&self.rect, &self.cfg);
-        self.hdr_line = Self::get_hdr_line(self.rect.w);
+        self.hdr_line = Self::get_hdr_line(self.rect.w, &self.cfg);
         for tab in self.tabs.iter_mut() {
             tab.update_cfg(&self.cfg);
         }
@@ -252,11 +253,24 @@ impl TabServer {
             h: rect.h - 2
         }
     }
-    fn get_hdr_text(idx: usize, total_tab: usize, url: &str) -> ColoredText {
-        ColoredText::white(&format!("{}/{}: {}", idx + 1, total_tab, url))
+    fn get_hdr_text(    w:          u16,
+                        cfg:        &Config,
+                        idx:        usize, 
+                        total_tab:  usize, 
+                        path:       &str    ) -> ColoredText 
+    {
+        let text = &format!("{}/{}: {}", idx + 1, total_tab, path);
+        let width = std::cmp::min(usize::from(w), text.len());
+        ColoredText::new(
+                &text[..usize::from(width)],
+                cfg.colors.get_ui()
+            )
     }
-    fn get_hdr_line(w: u16) -> ColoredText {
-        ColoredText::white(&String::from("-").repeat(usize::from(w)))
+    fn get_hdr_line(w: u16, cfg: &Config) -> ColoredText {
+        ColoredText::new(
+                &String::from("-").repeat(usize::from(w)),
+                cfg.colors.get_ui()
+            )
     }
 }
 pub struct Tab {
@@ -283,7 +297,7 @@ impl Tab {
             doc:  doc,
         }
     }
-    // resize page and all dialogs
+    // resize page and dialog
     pub fn resize(&mut self, rect: &Rect) {
         self.rect = rect.clone();
         self.page.resize(&rect);
@@ -349,13 +363,16 @@ impl Tab {
                     Dialog::choose(
                         &self.rect,
                         "Delete current tab?",
+                        self.cfg.colors.get_ui(),
                         vec![(self.cfg.keys.yes, "yes"),
                              (self.cfg.keys.no, "no")]);
                 self.dlg = Some((TabMsg::DeleteMe, dialog));
                 return Some(TabMsg::None)
             }
             else if c == &self.cfg.keys.new_tab {
-                let dialog = Dialog::text(&self.rect, "enter path: ");
+                let dialog = Dialog::text(  &self.rect, 
+                                            "enter path: ", 
+                                            self.cfg.colors.get_ui());
                 self.dlg = Some((TabMsg::NewTab, dialog));
                 return Some(TabMsg::None)
             }
@@ -371,6 +388,7 @@ impl Tab {
                             let dialog = Dialog::choose(
                                 &self.rect,
                                 &format!("go to {}?", url),
+                                self.cfg.colors.get_ui(),
                                 vec![(self.cfg.keys.yes, "yes"), 
                                      (self.cfg.keys.no, "no")]);
                             (TabMsg::Go(url.to_string()), dialog)
@@ -379,6 +397,7 @@ impl Tab {
                             let dialog = Dialog::choose(
                                 &self.rect,
                                 &format!("Protocol {} not yet supported", url),
+                                self.cfg.colors.get_ui(),
                                 vec![(self.cfg.keys.yes, "acknowledge")]);
                             (TabMsg::Acknowledge, dialog)
                         }
@@ -386,6 +405,7 @@ impl Tab {
                             let dialog = Dialog::choose(
                                 &self.rect,
                                 &format!("you've selected {:?}", gemtext),
+                                self.cfg.colors.get_ui(),
                                 vec![(self.cfg.keys.yes, "acknowledge")]);
                             (TabMsg::Acknowledge, dialog)
                         }
@@ -496,15 +516,16 @@ pub struct Dialog {
     input_type: InputType,
 }
 impl Dialog {
-    pub fn text(rect: &Rect, prompt: &str) -> Self {
+    pub fn text(rect: &Rect, prompt: &str, color: Color) -> Self {
         Self {
             rect:       rect.clone(),
             prompt:     String::from(prompt), 
-            input_type: InputType::Text(CursorText::new(rect, "")),
+            input_type: InputType::Text(CursorText::new(rect, "", color)),
         }
     }
     pub fn choose(  rect:   &Rect, 
                     prompt: &str, 
+                    color:  Color,
                     choose: Vec<(char, &str)>) -> Self
     {
         let view_rect = Rect {  x: rect.x, 
@@ -514,7 +535,7 @@ impl Dialog {
         let keys_vec = choose.iter().map(|(c, _)| *c).collect();
         let view_vec = choose.iter()
                 .map(|(x, y)| format!("|{}|  {}", x, y)).collect();
-        let pager    = Pager::white(&view_rect, &view_vec);
+        let pager    = Pager::one_color(&view_rect, &view_vec, color);
         Self {
             rect:       rect.clone(),
             prompt:     String::from(prompt), 

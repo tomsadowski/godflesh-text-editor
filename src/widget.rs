@@ -2,9 +2,10 @@
 
 use crate::common;
 use crossterm::{
-    QueueableCommand, cursor,
+    QueueableCommand, 
+    cursor::{self, MoveTo},
     terminal::{self, ClearType},
-    style::{self, Color},
+    style::{self, Color, SetForegroundColor, Print},
 };
 use std::{
     io::{self, Stdout, Write},
@@ -38,16 +39,6 @@ impl Rect {
         let end   = self.y + (self.h - (self.h / 4));
         Range::new(usize::from(start), usize::from(end))
     }
-    pub fn horizontal(&self) -> Result<Range, String> {
-        let start = self.x;
-        let end   = self.x + self.w;
-        Range::new(usize::from(start), usize::from(end))
-    }
-    pub fn verticle(&self) -> Result<Range, String> {
-        let start = self.y;
-        let end   = self.y + self.h;
-        Range::new(usize::from(start), usize::from(end))
-    }
 }
 #[derive(Clone, Debug)]
 pub struct Range {
@@ -55,6 +46,22 @@ pub struct Range {
     b: usize,
 }
 impl Range {
+    pub fn horizontal(rect: &Rect) -> Self {
+        let start = rect.x;
+        let end   = rect.x + rect.w;
+        Range {a: usize::from(start), b: usize::from(end)}
+    }
+    pub fn verticle(rect: &Rect) -> Self {
+        let start = rect.y;
+        let end   = rect.y + rect.h;
+        Range {a: usize::from(start), b: usize::from(end)}
+    }
+    pub fn change_length(range: &Range, len: usize) -> Self {
+        Self {
+            a: range.a,
+            b: range.a + len,
+        }
+    }
     pub fn new(a: usize, b: usize) -> Result<Self, String> {
         match a > b {
             true => 
@@ -87,36 +94,24 @@ impl Cursor {
     // private helper returning (outer, inner) ranges
     fn get_ranges(len: usize, r: &Range, buf: usize) -> (Range, Range) {
         if len < r.len() {
-            let range = Range::new(r.start(), r.start() + len).unwrap();
-            return (range.clone(), range)
+            let r1 = Range::change_length(r, len);
+            let r2 = r1.clone();
+            return (r1, r2)
         } else {
             // if buf is too big then return input
             let inner = 
-                match Range::new(r.start() + buf, r.end() - (buf + 1)) {
+                match Range::new(   r.start() + buf, 
+                                    r.end() - (buf + 1)) 
+                {
                     Ok(range) => range,
                     _         => r.clone(),
                 };
             return (r.clone(), inner)
         }
     }
-    pub fn new(len: usize, r: &Range, buf: u8) -> Self {
+    pub fn new(len: usize, r: &Range, buf: u8, tip: u8) -> Self {
         let buf = usize::from(buf);
-        let tip = 0;
-        let len = len + tip;
-        let (outer, inner) = Self::get_ranges(len, r, buf);
-        Self {
-            tip:       tip,
-            buf:       buf,
-            scroll:    0, 
-            maxscroll: len - outer.len(),
-            cursor:    outer.start(), 
-            outer:     outer,
-            inner:     inner,
-        }
-    }
-    pub fn text(len: usize, r: &Range) -> Self {
-        let buf = 0;
-        let tip = 1;
+        let tip = usize::from(tip);
         let len = len + tip;
         let (outer, inner) = Self::get_ranges(len, r, buf);
         Self {
@@ -266,20 +261,22 @@ impl ColoredText {
 #[derive(Clone, Debug)]
 pub struct CursorText {
     cursor: Cursor,
+    color:  Color,
     text:   String,
     range:  Range,
 }
 impl CursorText {
-    pub fn new(rect: &Rect, source: &str) -> Self {
-        let range = rect.horizontal().unwrap();
+    pub fn new(rect: &Rect, source: &str, color: Color) -> Self {
+        let range = Range::horizontal(rect);
         Self {
-            cursor: Cursor::text(source.len(), &range),
+            color:  color,
+            cursor: Cursor::new(source.len(), &range, 0, 1),
             text:   String::from(source),
             range:  range,
         }
     }
     pub fn resize(&mut self, rect: &Rect) {
-        let range = rect.horizontal().unwrap();
+        let range = Range::horizontal(rect);
         self.cursor.resize(self.text.len(), &range);
         self.range = range;
     }
@@ -288,10 +285,10 @@ impl CursorText {
         let (a, b) = self.cursor.get_display_range();
         let text = &self.text[a..b]; 
         stdout
-            .queue(cursor::MoveTo(
-                    self.cursor.get_screen_start(), y))?
-            .queue(style::Print(text))?
-            .queue(cursor::MoveTo(self.cursor.get_cursor(), y))?
+            .queue(MoveTo(self.cursor.get_screen_start(), y))?
+            .queue(SetForegroundColor(self.color))?
+            .queue(Print(text))?
+            .queue(MoveTo(self.cursor.get_cursor(), y))?
             .queue(cursor::Show)?
             .flush()
     }
@@ -346,12 +343,12 @@ pub struct Pager {
     display: Vec<(usize, String)>,
 } 
 impl Pager {
-    pub fn white(rect: &Rect, source: &Vec<String>) -> Self {
-        let white: Vec<ColoredText> = source
+    pub fn one_color(rect: &Rect, source: &Vec<String>, color: Color) -> Self {
+        let text: Vec<ColoredText> = source
             .iter()
-            .map(|s| ColoredText::white(s))
+            .map(|s| ColoredText::new(s, color))
             .collect();
-        Self::new(rect, &white, 0)
+        Self::new(rect, &text, 0)
     }
     pub fn new(rect: &Rect, source: &Vec<ColoredText>, buf: u8) -> Self {
         let display = common::wrap_list(
@@ -359,40 +356,39 @@ impl Pager {
             rect.w);
         return Self {
             rect:    rect.clone(),
-            cursor:  
-                Cursor::new(
-                    display.len(), 
-                    &rect.verticle().unwrap(), 
-                    buf),
+            cursor:  Cursor::new(   display.len(), 
+                                    &Range::verticle(rect),
+                                    buf, 
+                                    0   ),
             source:  source.clone(),
             display: display,
         }
     }
     pub fn resize(&mut self, rect: &Rect) {
         self.rect    = rect.clone();
-        self.display = common::wrap_list(
-            &self.source.iter().map(|ct| ct.text.clone()).collect(),
-            rect.w);
+        self.display = 
+            common::wrap_list(
+                &self.source.iter()
+                    .map(|ct| ct.text.clone())
+                    .collect(),
+                rect.w  );
         self.cursor.resize(
             self.display.len(), 
-            &rect.verticle().unwrap());
+            &Range::verticle(rect)  );
     }
     pub fn view(&self, mut stdout: &Stdout) -> io::Result<()> {
         stdout.queue(cursor::Hide)?;
         let (a, b) = self.cursor.get_display_range();
         for (j, (i, text)) in self.display[a..b].iter().enumerate() {
             stdout
-                .queue(cursor::MoveTo(
-                        self.rect.x, 
-                        self.cursor.get_screen_start() + j as u16))?
-                .queue(style::SetForegroundColor(
-                        self.source[*i].color))?
-                .queue(style::Print(text.as_str()))?;
+                .queue(MoveTo(  self.rect.x, 
+                                self.cursor.get_screen_start() + j as u16))?
+                .queue(SetForegroundColor(self.source[*i].color))?
+                .queue(Print(text.as_str()))?;
         }
         stdout
-            .queue(cursor::MoveTo(
-                self.rect.x, 
-                self.cursor.get_cursor()))?
+            .queue(cursor::MoveTo(  self.rect.x, 
+                                    self.cursor.get_cursor()))?
             .queue(cursor::Show)?
             .flush()
     }
