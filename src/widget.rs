@@ -242,16 +242,13 @@ pub struct ColoredText {
     pub text:  String,
 }
 impl ColoredText {
-    pub fn white(text: &str) -> Self {
-        Self {
-            color: Color::Rgb {r: 205, g: 205, b: 205},
-            text: String::from(text),
-        }
+    pub fn from_vec(vec: &Vec<&str>, color: Color) -> Vec<Self> {
+        vec.iter().map(|s| Self::new(s, color)).collect()
     }
     pub fn new(text: &str, color: Color) -> Self {
         Self {
             color: color,
-            text: String::from(text),
+            text: text.into(),
         }
     }
     pub fn getcolor(&self) -> Color {
@@ -343,12 +340,16 @@ pub struct Pager {
     display: Vec<(usize, String)>,
 } 
 impl Pager {
-    pub fn one_color(rect: &Rect, source: &Vec<String>, color: Color) -> Self {
+    pub fn one_color(   rect: &Rect, 
+                        source: &Vec<String>, 
+                        color: Color, 
+                        buf: u8 ) -> Self 
+    {
         let text: Vec<ColoredText> = source
             .iter()
             .map(|s| ColoredText::new(s, color))
             .collect();
-        Self::new(rect, &text, 0)
+        Self::new(rect, &text, buf)
     }
     pub fn new(rect: &Rect, source: &Vec<ColoredText>, buf: u8) -> Self {
         let display = common::wrap_list(

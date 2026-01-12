@@ -31,7 +31,7 @@ impl Config {
     }
     pub fn default() -> Self {
         Self {
-            init_url:  "".into(),
+            init_url: "gemini://datapulp.smol.pub/".into(),
             scroll_at: 3,
             colors:    ColorParams::default(),
             keys:      KeyParams::default(),
@@ -43,7 +43,7 @@ impl Config {
 pub struct KeyParams {
     pub global:         char,
     pub load_cfg:       char,
-    pub status_view:    char,
+    pub msg_view:       char,
     pub tab_view:       char,
     pub dialog: DialogKeyParams,
     pub tab:    TabKeyParams,
@@ -53,7 +53,7 @@ impl KeyParams {
         Self {
             global:         'g',
             load_cfg:       'c',
-            status_view:    's',
+            msg_view:       'm',
             tab_view:       't',
             dialog: DialogKeyParams::default(),
             tab:    TabKeyParams::default(),
