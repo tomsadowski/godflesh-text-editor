@@ -3,18 +3,15 @@
 #![allow(dead_code)]
 #![allow(unused_imports)]
 
-mod gemini;     // backend
 mod widget;     // frontend
 mod common;     // used by backend and frontend
-mod ui;         // uses backend and frontend
-mod config;     // uses backend and frontend
+mod text;
 
 use crossterm::{
     QueueableCommand, terminal, event,
 };
 use std::{
     io::{self, stdout, Write},
-    fs,
 };
 
 fn main() -> io::Result<()> {
