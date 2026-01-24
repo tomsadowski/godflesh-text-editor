@@ -1,7 +1,7 @@
 // widget
 
 use crate::common::{
-    Page, Bound, Screen, ScreenRange, DataRange, View, 
+    Page, Bound, Screen, ScreenRange, DataRange, Pos, 
 };
 use crossterm::{
     QueueableCommand, 
@@ -13,8 +13,8 @@ use std::{
 };
 
 pub struct UI {
-    pub editor: TextEditor,
-    pub scr:    Screen,
+    pub edt: TextEditor,
+    pub pos: Pos,
 }
 
 pub struct TextEditor {
@@ -25,32 +25,35 @@ impl TextEditor {
     pub fn new(screen: &Screen, spacer: u16, source: &str) -> Self {
         let src = source.lines().map(|s| String::from(s)).collect();
         Self {
-            page: Page::new(screen, &src, spacer, 0, ),
+            page: Page::new(screen, &src, spacer, 0),
             text: src,
         }
     }
-//  pub fn resize(&mut self, screen: &Screen, spacer: u16) {
-//      self.bounds = ViewBound::new(screen.get_x(), spacer);
-//  }
-//  pub fn view(&self, view: View, mut stdout: &Stdout) -> io::Result<()> {
-//      let DataRange(a, b) = self.page.get_y_data_range(&view);
-//      let ViewBound(ScreenRange(start, _), _) = self.page.y_bound;
-//      let ranges = self.page.get_x_data_range(&view);
-//      for (i, l) in self.text[a..b].iter().enumerate() {
-//          let DataRange(l1, l2) = ranges[i];
-//          stdout
-//              .queue(MoveTo(start + (i as u16), 0))?
-//              .queue(Print(&l[l1..l2]))?;
-//      }
-//      stdout.flush()
-//  }
-//  pub fn move_left(&mut self, view: &View, step: u16) -> Option<View> {
-//      self.page.move_backward(view, step)
-//  }
-//  pub fn move_right(&mut self, view: &View, step: u16) -> Option<View> {
-//      self.page.move_forward(view, step)
-//  }
-//  pub fn delete(&mut self, view: &View) -> Option<View> {
+    pub fn resize(&mut self, screen: &Screen, spacer: u16) {
+        self.page = Page::new(screen, &self.text, spacer, 0);
+    }
+    pub fn view(&self, pos: Pos, mut stdout: &Stdout) -> io::Result<()> {
+        let ranges = self.page.get_ranges(&pos);
+        for (x, i, r) in ranges.into_iter() {
+            stdout
+                .queue(MoveTo(x, self.page.scr.y))?
+                .queue(Print(&self.text[i][r.a..r.b]))?;
+        }
+        stdout.flush()
+    }
+    pub fn move_left(&self, mut pos: Pos, step: u16) -> bool {
+        pos.move_left(&self.page, step)
+    }
+    pub fn move_right(&self, mut pos: Pos, step: u16) -> bool {
+        pos.move_right(&self.page, step)
+    }
+    pub fn move_up(&self, mut pos: Pos, step: u16) -> bool {
+        pos.move_up(&self.page, step)
+    }
+    pub fn move_down(&self, mut pos: Pos, step: u16) -> bool {
+        pos.move_down(&self.page, step)
+    }
+//  pub fn delete(&mut self, pos: &View) -> Option<View> {
 //      let View(cursor, _) = view;
 //      if self.bounds.screen_range.get_idx(view) == self.text.len() + 1 {
 //          return None

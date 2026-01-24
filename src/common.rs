@@ -1,21 +1,6 @@
 // common
 
 #[derive(Clone)]
-pub struct ScrollPoint {
-    pub i: usize, 
-    pub j: usize
-}
-#[derive(Clone)]
-pub struct ScreenPoint {
-    pub x: u16, 
-    pub y: u16
-}
-#[derive(Clone)]
-pub struct ScreenSize {
-    pub w: u16, 
-    pub h: u16
-}
-#[derive(Clone)]
 pub struct DataRange {
     pub a: usize, 
     pub b: usize
@@ -27,16 +12,20 @@ pub struct ScreenRange {
 }
 #[derive(Clone)]
 pub struct Screen {
-    pub pt: ScreenPoint, 
-    pub sz: ScreenSize
+    pub x: u16, 
+    pub y: u16,
+    pub w: u16, 
+    pub h: u16
 }
 #[derive(Clone)]
-pub struct View {
-    pub cursor: ScreenPoint,
-    pub scroll: ScrollPoint,
+pub struct Pos {
+    pub x: u16, 
+    pub y: u16,
+    pub i: usize, 
+    pub j: usize
 }
 #[derive(Clone)]
-pub struct ViewCol {
+pub struct PosCol {
     pub cursor: u16, 
     pub scroll: usize
 }
@@ -51,23 +40,23 @@ pub struct Page {
     pub ybnd: Bound,
 }
 pub trait Subject {
-    fn get_x_bnd(&self, view: &View) -> &Bound;
-    fn get_y_bnd(&self, view: &View) -> &Bound;
+    fn get_x_bnd(&self, pos: &Pos) -> &Bound;
+    fn get_y_bnd(&self, pos: &Pos) -> &Bound;
     fn get_x_rng(&self) -> ScreenRange;
     fn get_y_rng(&self) -> ScreenRange;
 }
 
-impl ViewCol {
-    pub fn join_with_x(self, x: ViewCol) -> View {
-        View {
-            cursor: ScreenPoint {x: x.cursor, y: self.cursor},
-            scroll: ScrollPoint {i: x.scroll, j: self.scroll},
+impl PosCol {
+    pub fn join_with_x(self, x: PosCol) -> Pos {
+        Pos {
+            x: x.cursor, y: self.cursor,
+            i: x.scroll, j: self.scroll,
         }
     }
-    pub fn join_with_y(self, y: ViewCol) -> View {
-        View {
-            cursor: ScreenPoint {x: self.cursor, y: y.cursor},
-            scroll: ScrollPoint {i: self.scroll, j: y.scroll},
+    pub fn join_with_y(self, y: PosCol) -> Pos {
+        Pos {
+            x: self.cursor, y: y.cursor,
+            i: self.scroll, j: y.scroll,
         }
     }
     pub fn move_into(&mut self, rng: &ScreenRange, bnd: &Bound) -> bool {
@@ -286,14 +275,14 @@ impl ViewCol {
     }
 }
 impl Screen {
-    pub fn get_x(&self) -> ScreenRange {
-        let x = self.pt.x;
-        let w = self.sz.w;
+    pub fn xrng(&self) -> ScreenRange {
+        let x = self.x;
+        let w = self.w;
         ScreenRange {a: x, b: x + w}
     }
-    pub fn get_y(&self) -> ScreenRange {
-        let y = self.pt.y;
-        let h = self.sz.h;
+    pub fn yrng(&self) -> ScreenRange {
+        let y = self.y;
+        let h = self.h;
         ScreenRange {a: y, b: y + h}
     }
 }
@@ -313,7 +302,7 @@ impl ScreenRange {
         DataRange {a: usize::from(self.a), b: usize::from(self.b)}
     }
     // index of cursor within its range
-    pub fn get_idx(&self, col: &ViewCol) -> usize {
+    pub fn get_idx(&self, col: &PosCol) -> usize {
         col.scroll + usize::from(col.cursor - self.a)
     }
     pub fn length(&self) -> usize {
@@ -337,16 +326,13 @@ impl Bound {
     }
     pub fn get_max_scroll(&self, rng: &ScreenRange) -> usize {
         match self {
-            Bound::Screen(l) | Bound::Space(_, l) => {
-                l - rng.length()
-            }
-            _ => {
-                0
-            }
+            Bound::Screen(l) | Bound::Space(_, l) => 
+                l - rng.length(),
+            _ => 0,
         }
     }
     // returns the start and end of displayable text
-    pub fn get_data_range(&self, scr: &ScreenRange, col: ViewCol) -> DataRange {
+    pub fn get_data_range(&self, scr: &ScreenRange, col: &PosCol) -> DataRange {
         match self {
             Bound::Data(range) => 
                 range.to_data_range(),
@@ -356,26 +342,25 @@ impl Bound {
         }
     }
 }
-impl View {
-    pub fn get_x(&self) -> ViewCol {
-        let cursor = self.cursor.x;
-        let scroll = self.scroll.i;
-        ViewCol {cursor, scroll}
+impl Pos {
+    pub fn xcol(&self) -> PosCol {
+        let cursor = self.x;
+        let scroll = self.i;
+        PosCol {cursor, scroll}
     }
-    pub fn get_y(&self) -> ViewCol {
-        let cursor = self.cursor.y;
-        let scroll = self.scroll.j;
-        ViewCol {cursor, scroll}
+    pub fn get_y(&self) -> PosCol {
+        let cursor = self.y;
+        let scroll = self.j;
+        PosCol {cursor, scroll}
     }
     pub fn move_left<T: Subject>(&mut self, subject: &T, step: u16) -> bool {
-        let mut x_col = self.get_x();
-        let y_col = self.get_y();
-        let x_bnd = subject.get_x_bnd(&self);
-        let x_rng = subject.get_x_rng();
-        match x_col.move_backward(&x_rng, x_bnd, step) {
+        let mut xcol = self.xcol();
+        let xbnd = subject.get_x_bnd(&self);
+        let xrng = subject.get_x_rng();
+        match xcol.move_backward(&xrng, xbnd, step) {
             true => {
-                self.cursor = ScreenPoint {x: x_col.cursor, y: y_col.cursor};
-                self.scroll = ScrollPoint {i: x_col.scroll, j: y_col.scroll};
+                self.x = xcol.cursor;
+                self.i = xcol.scroll;
                 true
             }
             false => {
@@ -384,14 +369,13 @@ impl View {
         }
     }
     pub fn move_right<T: Subject>(&mut self, subject: &T, step: u16) -> bool {
-        let mut x_col = self.get_x();
-        let y_col = self.get_y();
-        let x_bnd = subject.get_x_bnd(&self);
-        let x_rng = subject.get_x_rng();
-        match x_col.move_forward(&x_rng, x_bnd, step) {
+        let mut xcol = self.xcol();
+        let xbnd = subject.get_x_bnd(&self);
+        let xrng = subject.get_x_rng();
+        match xcol.move_forward(&xrng, xbnd, step) {
             true => {
-                self.cursor = ScreenPoint {x: x_col.cursor, y: y_col.cursor};
-                self.scroll = ScrollPoint {i: x_col.scroll, j: y_col.scroll};
+                self.x = xcol.cursor;
+                self.i = xcol.scroll;
                 true
             }
             false => {
@@ -400,14 +384,13 @@ impl View {
         }
     }
     pub fn move_up<T: Subject>(&mut self, subject: &T, step: u16) -> bool {
-        let mut y_col = self.get_y();
-        let x_col = self.get_x();
-        let y_bnd = subject.get_y_bnd(&self);
-        let y_rng = subject.get_y_rng();
-        match y_col.move_backward(&y_rng, y_bnd, step) {
+        let mut ycol = self.get_y();
+        let ybnd = subject.get_y_bnd(&self);
+        let yrng = subject.get_y_rng();
+        match ycol.move_backward(&yrng, ybnd, step) {
             true => {
-                self.cursor = ScreenPoint {x: x_col.cursor, y: y_col.cursor};
-                self.scroll = ScrollPoint {i: x_col.scroll, j: y_col.scroll};
+                self.y = ycol.cursor;
+                self.j = ycol.scroll;
                 true
             }
             false => {
@@ -416,14 +399,13 @@ impl View {
         }
     }
     pub fn move_down<T: Subject>(&mut self, subject: &T, step: u16) -> bool {
-        let mut y_col = self.get_y();
-        let x_col = self.get_x();
-        let y_bnd = subject.get_y_bnd(&self);
-        let y_rng = subject.get_y_rng();
-        match y_col.move_forward(&y_rng, y_bnd, step) {
+        let mut ycol = self.get_y();
+        let ybnd = subject.get_y_bnd(&self);
+        let yrng = subject.get_y_rng();
+        match ycol.move_forward(&yrng, ybnd, step) {
             true => {
-                self.cursor = ScreenPoint {x: x_col.cursor, y: y_col.cursor};
-                self.scroll = ScrollPoint {i: x_col.scroll, j: y_col.scroll};
+                self.y = ycol.cursor;
+                self.j = ycol.scroll;
                 true
             }
             false => {
@@ -433,40 +415,45 @@ impl View {
     }
 }
 impl Page {
-    // if spacer is too large, scroll_points == screen_range
     pub fn new(scr: &Screen, txt: &Vec<String>, hspc: u16, vspc: u16) -> Page {
         let xbnd = txt.iter()
-            .map(|txt| Bound::new(scr.get_x(), hspc, txt.len()));
-        let ybnd = Bound::new(scr.get_y(), vspc, txt.len());
+            .map(|txt| Bound::new(scr.xrng(), hspc, txt.len()));
+        let ybnd = Bound::new(scr.yrng(), vspc, txt.len());
         Self {
             xbnd: xbnd.collect(), 
             ybnd: ybnd, 
             scr:  scr.clone(),
         }
     }
-    pub fn get_x_data_range(&self, view: &View) -> Vec<DataRange> {
-        let DataRange {a: a, b: b} = self.get_y_data_range(view);
-        let mut xrng: Vec<DataRange> = vec![];
-        for x in &self.xbnd[a..b] {
-            xrng.push(x.get_data_range(&self.scr.get_x(), view.get_x()));
+    pub fn get_ranges(&self, pos: &Pos) 
+        -> Vec<(u16, usize, DataRange)> 
+    {
+        let xrng = self.scr.xrng();
+        let yrng = self.scr.yrng();
+        let xcol = pos.xcol();
+        let drng = self.get_y_data_range(pos);
+        let mut butt: Vec<(u16, usize, DataRange)> = vec![];
+        for (e, i) in (drng.a..drng.b).into_iter().enumerate() {
+            let fart = self.xbnd[i].get_data_range(&xrng, &xcol);
+            butt.push((yrng.a + (e as u16), i, fart));
         }
-        xrng
+        butt
     }
-    pub fn get_y_data_range(&self, view: &View) -> DataRange {
-        self.ybnd.get_data_range(&self.scr.get_y(), view.get_y())
+    pub fn get_y_data_range(&self, pos: &Pos) -> DataRange {
+        self.ybnd.get_data_range(&self.scr.yrng(), &pos.get_y())
     }
 }
 impl Subject for Page {
     fn get_x_rng(&self) -> ScreenRange {
-        self.scr.get_x()
+        self.scr.xrng()
     }
     fn get_y_rng(&self) -> ScreenRange {
-        self.scr.get_y()
+        self.scr.yrng()
     }
-    fn get_x_bnd(&self, view: &View) -> &Bound {
-        &self.xbnd[self.scr.get_y().get_idx(&view.get_y())]
+    fn get_x_bnd(&self, pos: &Pos) -> &Bound {
+        &self.xbnd[self.scr.yrng().get_idx(&pos.get_y())]
     }
-    fn get_y_bnd(&self, _: &View) -> &Bound {
+    fn get_y_bnd(&self, _: &Pos) -> &Bound {
         &self.ybnd
     }
 }
