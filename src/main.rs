@@ -15,8 +15,9 @@ use std::{
 };
 
 fn main() -> io::Result<()> {
+    let arg = std::env::args().nth(1).expect("poop");
     let (w, h) = terminal::size()?;
-    let mut ui = ui::UI::new("gem.toml", w, h);
+    let mut ui = widget::UI::new(&arg, w, h);
     let mut stdout = stdout();
 
     terminal::enable_raw_mode()?;

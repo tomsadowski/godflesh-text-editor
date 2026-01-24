@@ -60,10 +60,13 @@ impl PosCol {
         }
     }
     pub fn move_into(&mut self, rng: &ScreenRange, bnd: &Bound) -> bool {
-        let (a, b) = match bnd {
-            Bound::Data(rng) | Bound::Space(rng, _) => (rng.a, rng.b),
-            Bound::Screen(_) => (rng.a, rng.b), 
-        };
+        let (a, b) = 
+            match bnd {
+                Bound::Data(rng) | Bound::Space(rng, _) => 
+                    (rng.a, rng.b),
+                Bound::Screen(_) => 
+                    (rng.a, rng.b), 
+            };
         match (self.cursor >= a, self.cursor <= b) {
             (true, true) => {
                 false
@@ -432,12 +435,12 @@ impl Page {
         let yrng = self.scr.yrng();
         let xcol = pos.xcol();
         let drng = self.get_y_data_range(pos);
-        let mut butt: Vec<(u16, usize, DataRange)> = vec![];
+        let mut vec: Vec<(u16, usize, DataRange)> = vec![];
         for (e, i) in (drng.a..drng.b).into_iter().enumerate() {
-            let fart = self.xbnd[i].get_data_range(&xrng, &xcol);
-            butt.push((yrng.a + (e as u16), i, fart));
+            let rng = self.xbnd[i].get_data_range(&xrng, &xcol);
+            vec.push((yrng.a + (e as u16), i, rng));
         }
-        butt
+        vec
     }
     pub fn get_y_data_range(&self, pos: &Pos) -> DataRange {
         self.ybnd.get_data_range(&self.scr.yrng(), &pos.get_y())
