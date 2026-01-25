@@ -1,0 +1,7 @@
+   Compiling gem v0.1.0 (/home/tsadowski/.local/source/godflesh)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.17s
+     Running `target/debug/gem src/main.rs`
+
+thread 'main' (73129) panicked at src/common.rs:403:29:
+index out of bounds: the len is 40 but the index is 40
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace

@@ -32,22 +32,25 @@ impl UI {
         let txt = std::fs::read_to_string(path).unwrap();
         Self {
             view: View::Text,
-            editor: TextEditor::new(&scr, 0, &txt),
+            editor: TextEditor::new(&scr, 3, &txt),
             pos: Pos {x: 0, y: 0, i: 0, j: 0},
         }
     }
     // resize all views, maybe do this in parallel?
     fn resize(&mut self, w: u16, h: u16) {
         let scr = Screen {x: 0, y: 0, w: w, h: h};
-        self.editor.resize(&scr, 0);
+        self.editor.resize(&scr, 3);
     }
     // display the current view
     pub fn view(&self, mut stdout: &Stdout) -> io::Result<()> {
         stdout
             .queue(Clear(ClearType::All))?
             .queue(cursor::Hide)?;
+
         self.editor.view(&self.pos, stdout)?;
+
         stdout
+            .queue(MoveTo(self.pos.x, self.pos.y))?
             .queue(cursor::Show)?
             .flush()
     }
@@ -75,7 +78,13 @@ impl UI {
                     kind: KeyEventKind::Press, ..
                 }
             ) => {
-                self.editor.update(c, &mut self.pos)
+                match self.editor.update(c, &self.pos) {
+                    Some(p) => {
+                        self.pos = p;
+                        true
+                    }
+                    None => false,
+                }
             }
             _ => false,
         }
@@ -96,35 +105,35 @@ pub struct TextEditor {
     pub text: Vec<String>,
 }
 impl TextEditor {
-    pub fn new(screen: &Screen, spacer: u16, source: &str) -> Self {
+    pub fn new(screen: &Screen, spc: u16, source: &str) -> Self {
         let src: Vec<String> = source
             .lines()
             .map(|s| String::from(s))
             .collect();
         Self {
-            page: Page::new(screen, &src, spacer, 0),
+            page: Page::new(screen, &src, spc, spc),
             text: src,
         }
     }
     pub fn resize(&mut self, scr: &Screen, spc: u16) {
-        self.page = Page::new(scr, &self.text, spc, 0);
+        self.page = Page::new(scr, &self.text, spc, spc);
     }
-    pub fn update(&mut self, c: char, pos: &mut Pos) -> bool {
+    pub fn update(&mut self, c: char, pos: &Pos) -> Option<Pos> {
         match c {
             'e' => {
-                pos.move_left(&self.page, 1)
-            }
-            'i' => {
-                pos.move_down(&self.page, 1)
-            }
-            'o' => {
-                pos.move_up(&self.page, 1)
+                self.page.move_left(&pos, 1)
             }
             'n' => {
-                pos.move_right(&self.page, 1)
+                self.page.move_right(&pos, 1)
+            }
+            'i' => {
+                self.page.move_down(&pos, 1)
+            }
+            'o' => {
+                self.page.move_up(&pos, 1)
             }
             _ => {
-                false
+                None
             }
         }
     }
