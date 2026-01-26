@@ -3,9 +3,10 @@
 #![allow(dead_code)]
 #![allow(unused_imports)]
 
-mod widget;     // frontend
-mod common;     // used by backend and frontend
-mod text;
+mod bnd;    
+mod ui;
+mod scr;
+mod txt;
 
 use crossterm::{
     QueueableCommand, terminal, event,
@@ -17,7 +18,7 @@ use std::{
 fn main() -> io::Result<()> {
     let arg = std::env::args().nth(1).expect("poop");
     let (w, h) = terminal::size()?;
-    let mut ui = widget::UI::new(&arg, w, h);
+    let mut ui = ui::UI::new(&arg, w, h);
     let mut stdout = stdout();
 
     terminal::enable_raw_mode()?;

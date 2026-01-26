@@ -1,7 +1,8 @@
-// widget
+// ui
 
-use crate::common::{
-    Page, Bound, Screen, ScreenRange, DataRange, Pos, 
+use crate::{
+    bnd::{Page, Bound},
+    scr::{Screen, ScreenRange, DataRange, Pos, PosCol},
 };
 use crossterm::{
     event::{Event, KeyEvent, KeyEventKind, KeyCode, KeyModifiers},
@@ -28,17 +29,17 @@ pub struct UI {
 impl UI {
     // start with View::Tab
     pub fn new(path: &str, w: u16, h: u16) -> Self {
-        let scr = Screen {x: 0, y: 0, w: w, h: h};
+        let scr = Screen::origin(w, h);
         let txt = std::fs::read_to_string(path).unwrap();
         Self {
             view: View::Text,
             editor: TextEditor::new(&scr, 3, &txt),
-            pos: Pos {x: 0, y: 0, i: 0, j: 0},
+            pos: Pos::origin(&scr),
         }
     }
     // resize all views, maybe do this in parallel?
     fn resize(&mut self, w: u16, h: u16) {
-        let scr = Screen {x: 0, y: 0, w: w, h: h};
+        let scr = Screen::origin(w, h);
         self.pos = self.editor.resize(&scr, 3, &self.pos);
     }
     // display the current view
@@ -111,10 +112,10 @@ impl TextEditor {
             .lines()
             .map(|s| String::from(s))
             .collect();
-        let scr = scr.xplus(4).xcut(4);
-        let pscr = scr.yplus(4).ycut(1);
+        let tscr = scr.hcrop(4);
+        let pscr = tscr.crop_north(4).crop_south(1);
         Self {
-            scr:    scr,
+            scr:    tscr,
             page:   Page::new(&pscr, &src, spc, spc),
             text:   src,
         }
@@ -129,13 +130,13 @@ impl TextEditor {
         for (y, i, r) in ranges.into_iter() {
             stdout
                 .queue(MoveTo(self.page.scr.x, y))?
-                .queue(Print(&self.text[i][r.a..r.b]))?;
+                .queue(Print(&self.text[i][r.start..r.end]))?;
         }
         stdout.flush()
     }
     pub fn resize(&mut self, scr: &Screen, spc: u16, pos: &Pos) -> Pos {
-        let scr = scr.xplus(4).xcut(4);
-        let pscr = scr.yplus(4).ycut(1);
+        let scr = scr.hcrop(4);
+        let pscr = scr.crop_north(4).crop_south(1);
         self.scr = scr;
         self.page = Page::new(&pscr, &self.text, spc, spc);
         self.page.move_into_y(&self.page.move_into_x(pos))
