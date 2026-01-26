@@ -167,52 +167,30 @@ impl Bound {
             }
         }
     }
-    pub fn move_into(&self, rng: &ScreenRange, col: &PosCol) -> PosCol {
+    pub fn move_into(&self, scr: &ScreenRange, col: &PosCol) -> PosCol {
         let mut c = col.clone();
-        match self {
+        let (a, b) = match self {
             Bound::Data(rng) => {
                 c.head = 0;
-                let (a, b) = (rng.a, rng.b);
-                match (c.cursor < a, c.cursor >= b) {
-                    // cursor is less than a
-                    (true, false) => {
-                        c.cursor = a; c
-                    }
-                    // cursor is greater than or equal to b
-                    (false, true) => {
-                        c.cursor = b; c
-                    }
-                    _ => {c}
-                } 
+                (rng.a, rng.b)
             }
             Bound::Space(rng, _) => {
-                let (a, b) = (rng.a, rng.b);
-                match (c.cursor < a, c.cursor >= b) {
-                    // cursor is less than a
-                    (true, false) => {
-                        c.cursor = a; c
-                    }
-                    // cursor is greater than or equal to b
-                    (false, true) => {
-                        c.cursor = b; c
-                    }
-                    _ => {c}
-                } 
+                (rng.a, rng.b)
             }
             Bound::Screen(_) => {
-                let (a, b) = (rng.a, rng.b);
-                match (c.cursor < a, c.cursor >= b) {
-                    // cursor is less than a
-                    (true, false) => {
-                        c.cursor = a; c
-                    }
-                    // cursor is greater than or equal to b
-                    (false, true) => {
-                        c.cursor = b; c
-                    }
-                    _ => {c}
-                } 
+                (scr.a, scr.b)
             }
+        };
+        match (c.cursor < a, c.cursor >= b) {
+            // cursor is less than a
+            (true, false) => {
+                c.cursor = a; c
+            }
+            // cursor is greater than or equal to b
+            (false, true) => {
+                c.cursor = b; c
+            }
+            _ => {c}
         }
     }
     pub fn move_backward(&self, scr: &ScreenRange, col: &PosCol, step: u16) 
