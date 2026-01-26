@@ -39,7 +39,7 @@ impl UI {
     // resize all views, maybe do this in parallel?
     fn resize(&mut self, w: u16, h: u16) {
         let scr = Screen {x: 0, y: 0, w: w, h: h};
-        self.editor.resize(&scr, 3);
+        self.pos = self.editor.resize(&scr, 3, &self.pos);
     }
     // display the current view
     pub fn view(&self, mut stdout: &Stdout) -> io::Result<()> {
@@ -103,20 +103,42 @@ impl UI {
 pub struct TextEditor {
     pub page: Page,
     pub text: Vec<String>,
+    pub scr: Screen,
 }
 impl TextEditor {
-    pub fn new(screen: &Screen, spc: u16, source: &str) -> Self {
+    pub fn new(scr: &Screen, spc: u16, source: &str) -> Self {
         let src: Vec<String> = source
             .lines()
             .map(|s| String::from(s))
             .collect();
+        let scr = scr.xplus(4).xcut(4);
+        let pscr = scr.yplus(4).ycut(1);
         Self {
-            page: Page::new(screen, &src, spc, spc),
-            text: src,
+            scr:    scr,
+            page:   Page::new(&pscr, &src, spc, spc),
+            text:   src,
         }
     }
-    pub fn resize(&mut self, scr: &Screen, spc: u16) {
-        self.page = Page::new(scr, &self.text, spc, spc);
+    pub fn view(&self, pos: &Pos, mut stdout: &Stdout) -> io::Result<()> {
+        stdout
+            .queue(MoveTo(self.scr.x, self.scr.y))?
+            .queue(Print(format!("{:?}", pos)))?
+            .queue(MoveTo(self.scr.x, self.scr.y + 1))?
+            .queue(Print(format!("{:?}", self.page.x(&pos))))?;
+        let ranges = self.page.get_ranges(&pos);
+        for (y, i, r) in ranges.into_iter() {
+            stdout
+                .queue(MoveTo(self.page.scr.x, y))?
+                .queue(Print(&self.text[i][r.a..r.b]))?;
+        }
+        stdout.flush()
+    }
+    pub fn resize(&mut self, scr: &Screen, spc: u16, pos: &Pos) -> Pos {
+        let scr = scr.xplus(4).xcut(4);
+        let pscr = scr.yplus(4).ycut(1);
+        self.scr = scr;
+        self.page = Page::new(&pscr, &self.text, spc, spc);
+        self.page.move_into_y(&self.page.move_into_x(pos))
     }
     pub fn update(&mut self, c: char, pos: &Pos) -> Option<Pos> {
         match c {
@@ -136,15 +158,6 @@ impl TextEditor {
                 None
             }
         }
-    }
-    pub fn view(&self, pos: &Pos, mut stdout: &Stdout) -> io::Result<()> {
-        let ranges = self.page.get_ranges(&pos);
-        for (y, i, r) in ranges.into_iter() {
-            stdout
-                .queue(MoveTo(self.page.scr.x, y))?
-                .queue(Print(&self.text[i][r.a..r.b]))?;
-        }
-        stdout.flush()
     }
 //  pub fn delete(&mut self, pos: &View) -> Option<View> {
 //      let View(cursor, _) = view;

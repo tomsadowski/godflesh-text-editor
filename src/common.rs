@@ -6,7 +6,7 @@ pub struct DataRange {
     pub b: usize
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct ScreenRange {
     pub a: u16, 
     pub b: u16
@@ -24,18 +24,24 @@ impl ScreenRange {
         }
     }
     pub fn to_data_range(&self) -> DataRange {
-        DataRange {a: usize::from(self.a), b: usize::from(self.b)}
+        DataRange {a: 0, b: self.len()}
     }
     // index of cursor within its range
     pub fn idx(&self, col: &PosCol) -> usize {
-        col.scroll + usize::from(col.cursor - self.a)
+        match col.cursor > self.a {
+            true => 
+                col.head + usize::from(col.cursor - self.a),
+            false => 
+                col.head,
+        }
+
     }
     pub fn len(&self) -> usize {
         usize::from(self.b - self.a)
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct Screen {
     pub x: u16, 
     pub y: u16,
@@ -43,6 +49,46 @@ pub struct Screen {
     pub h: u16
 }
 impl Screen {
+    pub fn ycut(&self, step: u16) -> Screen {
+        match step < self.h {
+            true => 
+                Screen {
+                    x: self.x, y: self.y,
+                    w: self.w, h: self.h - step,
+                },
+            false => self.clone()
+        }
+    }
+    pub fn xcut(&self, step: u16) -> Screen {
+        match step < self.w {
+            true => 
+                Screen {
+                    x: self.x, y: self.y,
+                    w: self.w - step, h: self.h,
+                },
+            false => self.clone()
+        }
+    }
+    pub fn yplus(&self, step: u16) -> Screen {
+        match usize::from(step) * 2 < self.y().len() {
+            true => 
+                Screen {
+                    x: self.x, y: self.y + step,
+                    w: self.w, h: self.h - step,
+                },
+            false => self.clone()
+        }
+    }
+    pub fn xplus(&self, step: u16) -> Screen {
+        match usize::from(step) * 2 < self.x().len() {
+            true => 
+                Screen {
+                    x: self.x + step, y: self.y,
+                    w: self.w - step, h: self.h,
+                },
+            false => self.clone()
+        }
+    }
     pub fn x(&self) -> ScreenRange {
         ScreenRange {a: self.x, b: self.x + self.w}
     }
@@ -51,7 +97,7 @@ impl Screen {
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct Pos {
     pub x: u16, 
     pub y: u16,
@@ -60,33 +106,34 @@ pub struct Pos {
 }
 impl Pos {
     pub fn x(&self) -> PosCol {
-        PosCol {cursor: self.x, scroll: self.i}
+        PosCol {cursor: self.x, head: self.i}
     }
     pub fn y(&self) -> PosCol {
-        PosCol {cursor: self.y, scroll: self.j}
+        PosCol {cursor: self.y, head: self.j}
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct PosCol {
     pub cursor: u16, 
-    pub scroll: usize
+    pub head: usize
 }
 impl PosCol {
     pub fn join_with_x(self, x: PosCol) -> Pos {
         Pos {
             x: x.cursor, y: self.cursor,
-            i: x.scroll, j: self.scroll,
+            i: x.head, j: self.head,
         }
     }
     pub fn join_with_y(self, y: PosCol) -> Pos {
         Pos {
             x: self.cursor, y: y.cursor,
-            i: self.scroll, j: y.scroll,
+            i: self.head, j: y.head,
         }
     }
 }
 
+#[derive(Debug)]
 pub enum Bound {
     Data(ScreenRange),
     Screen(usize),
@@ -100,10 +147,10 @@ impl Bound {
             if spc == 0 || usize::from(spc) * 2 >= scr.len() {
                 Bound::Screen(len) 
             } else {
-                let scroll_a      = scr.a + spc;
-                let scroll_b      = scr.b - spc - 1;
-                let scroll_points = ScreenRange::new(scroll_a, scroll_b);
-                Bound::Space(scroll_points, len)
+                let head_a      = scr.a + spc;
+                let head_b      = scr.b - spc - 1;
+                let head_points = ScreenRange::new(head_a, head_b);
+                Bound::Space(head_points, len)
             }
         }
     }
@@ -122,25 +169,51 @@ impl Bound {
     }
     pub fn move_into(&self, rng: &ScreenRange, col: &PosCol) -> PosCol {
         let mut c = col.clone();
-        let (a, b) = 
-            match self {
-                Bound::Data(rng) | Bound::Space(rng, _) => 
-                    (rng.a, rng.b),
-                Bound::Screen(_) => 
-                    (rng.a, rng.b), 
-            };
-        match (c.cursor < a, c.cursor >= b) {
-            // cursor is less than a
-            (true, false) => {
-                c.cursor = a;
+        match self {
+            Bound::Data(rng) => {
+                c.head = 0;
+                let (a, b) = (rng.a, rng.b);
+                match (c.cursor < a, c.cursor >= b) {
+                    // cursor is less than a
+                    (true, false) => {
+                        c.cursor = a; c
+                    }
+                    // cursor is greater than or equal to b
+                    (false, true) => {
+                        c.cursor = b; c
+                    }
+                    _ => {c}
+                } 
             }
-            // cursor is greater than or equal to b
-            (false, true) => {
-                c.cursor = b;
+            Bound::Space(rng, _) => {
+                let (a, b) = (rng.a, rng.b);
+                match (c.cursor < a, c.cursor >= b) {
+                    // cursor is less than a
+                    (true, false) => {
+                        c.cursor = a; c
+                    }
+                    // cursor is greater than or equal to b
+                    (false, true) => {
+                        c.cursor = b; c
+                    }
+                    _ => {c}
+                } 
             }
-            _ => {}
-        } 
-        c
+            Bound::Screen(_) => {
+                let (a, b) = (rng.a, rng.b);
+                match (c.cursor < a, c.cursor >= b) {
+                    // cursor is less than a
+                    (true, false) => {
+                        c.cursor = a; c
+                    }
+                    // cursor is greater than or equal to b
+                    (false, true) => {
+                        c.cursor = b; c
+                    }
+                    _ => {c}
+                } 
+            }
+        }
     }
     pub fn move_backward(&self, scr: &ScreenRange, col: &PosCol, step: u16) 
         -> Option<PosCol> 
@@ -160,7 +233,7 @@ impl Bound {
                 }
             }
             Bound::Screen(_) => {
-                match (c.cursor == scr.a, c.scroll == usize::MIN) {
+                match (c.cursor == scr.a, c.head == usize::MIN) {
                     (true, true) => {
                         None
                     }
@@ -174,11 +247,11 @@ impl Bound {
                         }
                     }
                     (true, false) => {
-                        if usize::from(step) < c.scroll  {
-                            c.scroll -= usize::from(step);
+                        if usize::from(step) < c.head  {
+                            c.head -= usize::from(step);
                             Some(c)
                         } else {
-                            c.scroll = usize::MIN;
+                            c.head = usize::MIN;
                             Some(c)
                         }
                     }
@@ -195,7 +268,7 @@ impl Bound {
                 }
             }
             Bound::Space(rng, _) => {
-                match (c.cursor == rng.a, c.scroll == usize::MIN) {
+                match (c.cursor == rng.a, c.head == usize::MIN) {
                     (_, true) => {
                         if c.cursor == scr.a {
                             None
@@ -208,13 +281,13 @@ impl Bound {
                         }
                     }
                     (true, false) => {
-                        if usize::from(step) < c.scroll  {
-                            c.scroll -= usize::from(step);
+                        if usize::from(step) < c.head  {
+                            c.head -= usize::from(step);
                             Some(c)
                         } else {
-                            step -= u16::try_from(c.scroll)
+                            step -= u16::try_from(c.head)
                                 .unwrap_or(u16::MIN);
-                            c.scroll = usize::MIN;
+                            c.head = usize::MIN;
                             self.move_backward(scr, &c, step).or(Some(c))
                         }
                     }
@@ -251,7 +324,7 @@ impl Bound {
             }
             Bound::Screen(_) => {
                 match ( c.cursor == scr.b, 
-                        c.scroll == self.max_scroll(scr)) 
+                        c.head == self.max_head(scr)) 
                 {
                     (true, true) => {
                         None
@@ -276,13 +349,13 @@ impl Bound {
                         }
                     }
                     (true, false) => {
-                        if c.scroll + usize::from(step) < 
-                            self.max_scroll(scr)
+                        if c.head + usize::from(step) < 
+                            self.max_head(scr)
                         {
-                            c.scroll += usize::from(step);
+                            c.head += usize::from(step);
                             Some(c)
                         } else {
-                            c.scroll = self.max_scroll(scr);
+                            c.head = self.max_head(scr);
                             Some(c)
                         }
                     }
@@ -290,7 +363,7 @@ impl Bound {
             }
             Bound::Space(rng, _) => {
                 match ( c.cursor == rng.b, 
-                        c.scroll == self.max_scroll(scr)) 
+                        c.head == self.max_head(scr)) 
                 {
                     (_, true) => {
                         if c.cursor == scr.b {
@@ -304,16 +377,22 @@ impl Bound {
                         }
                     }
                     (true, false) => {
-                        if c.scroll + usize::from(step) < 
-                            self.max_scroll(scr) 
+                        if c.head + usize::from(step) < 
+                            self.max_head(scr) 
                         {
-                            c.scroll += usize::from(step);
+                            c.head += usize::from(step);
                             Some(c)
                         } else {
-                            step += u16::try_from(
-                                    self.max_scroll(scr) - c.scroll)
-                                .unwrap_or(u16::MIN);
-                            c.scroll = self.max_scroll(scr);
+                            match c.head < self.max_head(scr) {
+                                true => {
+                                    step += 
+                                        u16::try_from(
+                                            self.max_head(scr) - c.head)
+                                        .unwrap_or(u16::MIN);
+                                }
+                                false => {}
+                            };
+                            c.head = self.max_head(scr);
                             self.move_forward(&scr, &c, step).or(Some(c))
                         }
                     }
@@ -331,7 +410,7 @@ impl Bound {
             }
         }
     }
-    pub fn max_scroll(&self, rng: &ScreenRange) -> usize {
+    pub fn max_head(&self, rng: &ScreenRange) -> usize {
         match self {
             Bound::Screen(l) | Bound::Space(_, l) => 
                 l - rng.len(),
@@ -341,14 +420,16 @@ impl Bound {
     // returns the start and end of displayable text
     pub fn drng(&self, scr: &ScreenRange, col: &PosCol) -> DataRange {
         match self {
-            Bound::Data(range) => 
-                range.to_data_range(),
-            _ => 
+            Bound::Data(range) => {
+                range.to_data_range()
+            }
+            Bound::Screen(len) |
+            Bound::Space(_, len) => {
                 DataRange {
-                    a: col.scroll, 
-                    b: col.scroll + scr.len()
-                },
-            
+                    a: col.head, 
+                    b: std::cmp::min(col.head + scr.len(), *len),
+                }
+            }
         }
     }
 }
@@ -389,7 +470,12 @@ impl Page {
             .map(|y| y.join_with_x(pos.x()))
             .map(|p| self.move_into_x(&p))
     }
-    fn move_into_x(&self, pos: &Pos) -> Pos {
+    pub fn move_into_y(&self, pos: &Pos) -> Pos {
+        self.y
+            .move_into(&self.scr.y(), &pos.y())
+            .join_with_x(pos.x())
+    }
+    pub fn move_into_x(&self, pos: &Pos) -> Pos {
         self.x(&pos)
             .move_into(&self.scr.x(), &pos.x())
             .join_with_y(pos.y())
@@ -403,7 +489,7 @@ impl Page {
         }
         vec
     }
-    fn x(&self, pos: &Pos) -> &Bound {
+    pub fn x(&self, pos: &Pos) -> &Bound {
         let idx = self.scr.y().idx(&pos.y());
         let len = self.x.len();
         match idx >= len {
