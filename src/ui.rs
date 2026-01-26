@@ -31,10 +31,11 @@ impl UI {
     pub fn new(path: &str, w: u16, h: u16) -> Self {
         let scr = Screen::origin(w, h);
         let txt = std::fs::read_to_string(path).unwrap();
+        let editor = TextEditor::new(&scr, 3, &txt);
         Self {
-            view: View::Text,
-            editor: TextEditor::new(&scr, 3, &txt),
-            pos: Pos::origin(&scr),
+            view:   View::Text,
+            pos:    Pos::origin(&editor.scr),
+            editor: editor,
         }
     }
     // resize all views, maybe do this in parallel?
@@ -112,8 +113,8 @@ impl TextEditor {
             .lines()
             .map(|s| String::from(s))
             .collect();
-        let tscr = scr.hcrop(4);
-        let pscr = tscr.crop_north(4).crop_south(1);
+        let tscr = scr.crop_east(10);
+        let pscr = tscr.crop_north(3);
         Self {
             scr:    tscr,
             page:   Page::new(&pscr, &src, spc, spc),
@@ -130,14 +131,16 @@ impl TextEditor {
         for (y, i, r) in ranges.into_iter() {
             stdout
                 .queue(MoveTo(self.page.scr.x, y))?
-                .queue(Print(&self.text[i][r.start..r.end]))?;
+                .queue(Print(&self.text[i][r.start..r.end]))?
+                .queue(MoveTo(self.page.scr.x().end + 2, y))?
+                .queue(Print(format!("{} {}", r.start, r.end)))?;
         }
         stdout.flush()
     }
     pub fn resize(&mut self, scr: &Screen, spc: u16, pos: &Pos) -> Pos {
-        let scr = scr.hcrop(4);
-        let pscr = scr.crop_north(4).crop_south(1);
-        self.scr = scr;
+        let scr   = scr.crop_east(10);
+        let pscr  = scr.crop_north(3);
+        self.scr  = scr;
         self.page = Page::new(&pscr, &self.text, spc, spc);
         self.page.move_into_y(&self.page.move_into_x(pos))
     }
