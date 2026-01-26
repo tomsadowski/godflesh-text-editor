@@ -110,7 +110,8 @@ impl Bound {
                         } else {
                             step -= pos.screen - srng.start;
                             pos.screen = srng.start;
-                            self.move_backward(srng, &pos, step).or(Some(pos))
+                            self.move_backward(srng, &pos, step)
+                                .or(Some(pos))
                         }
                     }
                 }
@@ -136,7 +137,8 @@ impl Bound {
                             step -= u16::try_from(pos.data)
                                 .unwrap_or(u16::MIN);
                             pos.data = usize::MIN;
-                            self.move_backward(srng, &pos, step).or(Some(pos))
+                            self.move_backward(srng, &pos, step)
+                                .or(Some(pos))
                         }
                     }
                     (false, false) => {
@@ -146,7 +148,8 @@ impl Bound {
                         } else {
                             step -= pos.screen - rng.start;
                             pos.screen = rng.start;
-                            self.move_backward(srng, &pos, step).or(Some(pos))
+                            self.move_backward(srng, &pos, step)
+                                .or(Some(pos))
                         }
                     }
                 }
@@ -225,23 +228,18 @@ impl Bound {
                         }
                     }
                     (true, false) => {
-                        if pos.data + usize::from(step) < 
-                            self.max_data(srng) 
-                        {
+                        if pos.data + usize::from(step) < self.max_data(srng) {
                             pos.data += usize::from(step);
                             Some(pos)
                         } else {
-                            match pos.data < self.max_data(srng) {
-                                true => {
-                                    step += 
-                                        u16::try_from(
-                                            self.max_data(srng) - pos.data)
-                                        .unwrap_or(u16::MIN);
-                                }
-                                false => {}
+                            if pos.data < self.max_data(srng) {
+                                step += u16::try_from(
+                                        self.max_data(srng) - pos.data)
+                                    .unwrap_or(u16::MIN);
                             };
                             pos.data = self.max_data(srng);
-                            self.move_forward(&srng, &pos, step).or(Some(pos))
+                            self.move_forward(&srng, &pos, step)
+                                .or(Some(pos))
                         }
                     }
                     (false, false) => {
@@ -251,7 +249,8 @@ impl Bound {
                         } else {
                             step += rng.end - pos.screen;
                             pos.screen = rng.end;
-                            self.move_forward(srng, &pos, step).or(Some(pos))
+                            self.move_forward(srng, &pos, step)
+                                .or(Some(pos))
                         }
                     }
                 }
