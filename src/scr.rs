@@ -1,5 +1,3 @@
-// scr
-
 #[derive(Clone)]
 pub struct DataRange {
     pub start: usize, 
@@ -11,10 +9,6 @@ pub struct ScreenRange {
     pub end: u16
 }
 impl ScreenRange {
-    pub fn from_length(start: u16, len: usize) -> ScreenRange {
-        let len = u16::try_from(len).unwrap_or(u16::MIN);
-        ScreenRange {start: start, end: start + len}
-    }
     // if for some reason a > b, just swap them
     pub fn new(start: u16, end: u16) -> ScreenRange {
         match start > end {
@@ -22,24 +16,25 @@ impl ScreenRange {
             false => ScreenRange {start: start, end: end},
         }
     }
+    pub fn from_length(start: u16, len: usize) -> ScreenRange {
+        let len = u16::try_from(len).unwrap_or(u16::MIN);
+        ScreenRange {start: start, end: start + len}
+    }
     pub fn to_data_range(&self) -> DataRange {
         DataRange {start: 0, end: self.len()}
     }
     // index of cursor within its range
     pub fn idx(&self, col: &PosCol) -> usize {
-        match col.screen > self.start {
-            true => 
-                col.data + usize::from(col.screen - self.start),
-            false => 
-                col.data,
+        if col.screen > self.start {
+            col.data + usize::from(col.screen - self.start)
+        } else {
+            col.data
         }
-
     }
     pub fn len(&self) -> usize {
         usize::from(self.end - self.start)
     }
 }
-
 #[derive(Clone, Debug)]
 pub struct Screen {
     pub x: u16, 
@@ -51,11 +46,11 @@ impl Screen {
     pub fn origin(w: u16, h: u16) -> Screen {
         Screen {x: 0, y: 0, w: w, h: h}
     }
-    pub fn vcrop(&self, step: u16) -> Screen {
+    pub fn ycrop(&self, step: u16) -> Screen {
         let screen = self.clone();
         screen.crop_north(step).crop_south(step)
     }
-    pub fn hcrop(&self, step: u16) -> Screen {
+    pub fn xcrop(&self, step: u16) -> Screen {
         let screen = self.clone();
         screen.crop_east(step).crop_west(step)
     }
@@ -96,26 +91,22 @@ impl Screen {
         ScreenRange {start: self.y, end: self.y + self.h}
     }
 }
-
 #[derive(Clone, Debug)]
-pub struct Pos {
-    pub x: u16, 
-    pub y: u16,
-    pub i: usize, 
-    pub j: usize
+pub struct DataScreen {
+    pub outer: Screen,
+    pub inner: Screen,
 }
-impl Pos {
-    pub fn origin(screen: &Screen) -> Pos {
-        Pos {x: screen.x, y: screen.y, i: 0, j: 0}
+impl DataScreen {
+    pub fn new(outer: Screen, x: u16, y: u16) -> DataScreen {
+        Self {
+            inner: outer.xcrop(x).ycrop(y),
+            outer: outer,
+        }
     }
-    pub fn x(&self) -> PosCol {
-        PosCol {screen: self.x, data: self.i}
-    }
-    pub fn y(&self) -> PosCol {
-        PosCol {screen: self.y, data: self.j}
+    pub fn new_pos(&self) -> Pos {
+        Pos::origin(&self.outer)
     }
 }
-
 #[derive(Clone, Debug)]
 pub struct PosCol {
     pub screen: u16, 
@@ -138,4 +129,231 @@ impl PosCol {
             j: y.data,
         }
     }
+}
+#[derive(Clone, Debug)]
+pub struct Pos {
+    pub x: u16, 
+    pub y: u16,
+    pub i: usize, 
+    pub j: usize
+}
+impl Pos {
+    pub fn origin(screen: &Screen) -> Pos {
+        Pos {x: screen.x, y: screen.y, i: 0, j: 0}
+    }
+    pub fn x(&self) -> PosCol {
+        PosCol {screen: self.x, data: self.i}
+    }
+    pub fn y(&self) -> PosCol {
+        PosCol {screen: self.y, data: self.j}
+    }
+}
+
+pub fn move_into(   inner: &ScreenRange, 
+                    outer: &ScreenRange, 
+                    pos: &PosCol,
+                    len: usize  ) -> PosCol 
+{
+    let mut pos = pos.clone();
+    let (start, end) = match len < outer.len() {
+        true => 
+            (inner.start, inner.end),
+        false => 
+            (outer.start, outer.end)
+    };
+    if pos.screen < start {
+        pos.screen = start;
+    }
+    else if pos.screen >= end {
+        pos.screen = end;
+    }
+    pos
+}
+pub fn move_backward(   inner:  &ScreenRange, 
+                        outer:  &ScreenRange, 
+                        pos:    &PosCol, 
+                        step:   u16 ) -> Option<PosCol> 
+{
+    let mut step = step;
+    let mut pos = pos.clone();
+    match (pos.screen == outer.start, pos.data == usize::MIN) {
+        // nowhere to go, nothing to change
+        (true, true) => {
+            None
+        }
+        // move data point
+        (true, false) => {
+            if usize::from(step) < pos.data  {
+                pos.data -= usize::from(step);
+            } else {
+                pos.data = usize::MIN;
+            }
+            Some(pos)
+        }
+        // move screen point
+        (false, true) => {
+            if outer.start + step <= pos.screen {
+                pos.screen -= step;
+            } else {
+                pos.screen = outer.start;
+            }
+            Some(pos)
+        }
+        (false, false) => {
+            if inner.start + step <= pos.screen {
+                pos.screen -= step;
+                Some(pos)
+            } else if inner.start == pos.screen {
+                step -= u16::try_from(pos.data).unwrap_or(u16::MIN);
+                pos.data = usize::MIN;
+                move_backward(inner, outer, &pos, step).or(Some(pos))
+            } else {
+                step -= pos.screen - inner.start;
+                pos.screen = inner.start;
+                move_backward(inner, outer, &pos, step).or(Some(pos))
+            }
+        }
+    }
+}
+pub fn move_forward(    inner:  &ScreenRange, 
+                        outer:  &ScreenRange, 
+                        pos:    &PosCol, 
+                        len:    usize,
+                        step:   u16 ) -> Option<PosCol> 
+{
+    let mut step = step;
+    let mut pos = pos.clone();
+    let max_data = max_data(len, outer);
+    match (pos.screen == outer.end, pos.data == max_data) {
+        // nowhere to go, nothing to change
+        (true, true) => {
+            None
+        }
+        // move data point
+        (true, false) => {
+            if pos.data + usize::from(step) >= max_data {
+                pos.data += usize::from(step);
+            } else {
+                pos.data = max_data;
+            }
+            Some(pos)
+        }
+        // move screen point
+        (false, true) => {
+            if pos.screen + step <= outer.end {
+                pos.screen += step;
+            } else {
+                pos.screen = outer.end;
+            }
+            Some(pos)
+        }
+        (false, false) => {
+            if pos.screen + step <= inner.end {
+                pos.screen += step;
+                Some(pos)
+            } else if inner.end == pos.screen {
+                step += u16::try_from(max_data - pos.data)
+                    .unwrap_or(u16::MIN);
+                pos.data = max_data;
+                move_forward(inner, outer, &pos, len, step).or(Some(pos))
+            } else {
+                step += inner.end - pos.screen;
+                pos.screen = inner.end;
+                move_forward(inner, outer, &pos, len, step).or(Some(pos))
+            }
+        }
+    }
+}
+pub fn max_data(len: usize, rng: &ScreenRange) -> usize {
+    if len < rng.len() {
+        0
+    } else {
+        len - rng.len()
+    }
+}
+// returns the start and end of displayable text
+pub fn drng(len: usize, rng: &ScreenRange, pos: &PosCol) -> DataRange {
+    if len < rng.len() {
+        DataRange {start: 0, end: len}
+    } else {
+        DataRange {
+            start:  pos.data, 
+            end:    std::cmp::min(pos.data + rng.len(), len),
+        }
+    }
+}
+pub fn move_left(   dscr:   &DataScreen, 
+                    pos:    &Pos, 
+                    step:   u16 
+                    ) -> Option<Pos> 
+{
+    let xinner  = dscr.inner.x();
+    let xouter  = dscr.outer.x();
+    let xcol    = pos.x();
+    let ycol    = pos.y();
+    move_backward(&xinner, &xouter, &xcol, step)
+        .map(|x| x.join_with_y(ycol))
+}
+pub fn move_up( dscr:   &DataScreen, 
+                pos:    &Pos, 
+                data:   &Vec<&str>,
+                step:   u16 
+                ) -> Option<Pos> 
+{
+    let yinner  = dscr.inner.y();
+    let youter  = dscr.outer.y();
+    let ycol    = pos.y();
+    let xcol    = pos.x();
+    move_backward(&yinner, &youter, &ycol, step)
+        .map(|y| y.join_with_x(xcol))
+        .map(|p| move_into_x(dscr, &p, data))
+}
+pub fn move_right(  dscr:   &DataScreen, 
+                    pos:    &Pos, 
+                    data:   &Vec<&str>,
+                    step:   u16 
+                    ) -> Option<Pos> 
+{
+    let xlen    = data[dscr.outer.y().idx(&pos.y())].len();
+    let xinner  = dscr.inner.x();
+    let xouter  = dscr.outer.x();
+    let xcol    = pos.x();
+    move_forward(&xinner, &xouter, &xcol, xlen, step)
+        .map(|x| x.join_with_y(pos.y()))
+}
+pub fn move_down(   dscr:   &DataScreen, 
+                    pos:    &Pos, 
+                    data:   &Vec<&str>,
+                    step:   u16 
+                    ) -> Option<Pos> 
+{
+    let ylen    = data.len();
+    let yinner  = dscr.inner.y();
+    let youter  = dscr.outer.y();
+    let ycol    = pos.y();
+    let xcol    = pos.x();
+    move_forward(&yinner, &youter, &ycol, ylen, step)
+        .map(|y| y.join_with_x(xcol))
+        .map(|p| move_into_x(dscr, &p, data))
+}
+pub fn move_into_x( dscr:   &DataScreen, 
+                    pos:    &Pos,
+                    data:   &Vec<&str>,
+                    ) -> Pos 
+{
+    let xinner  = dscr.inner.x();
+    let xouter  = dscr.outer.x();
+    let xcol    = pos.x();
+    let xlen    = data[dscr.outer.y().idx(&pos.y())].len();
+    move_into(&xinner, &xouter, &xcol, xlen)
+        .join_with_y(pos.y())
+}
+pub fn get_ranges(&self, pos: &Pos) -> Vec<(u16, usize, DataRange)> {
+    let mut vec: Vec<(u16, usize, DataRange)> = vec![];
+    let drng = self.y.drng(&self.scr.y(), &pos.y());
+    for (e, i) in (drng.start..drng.end).into_iter().enumerate() {
+        let rng = self.x[i].drng(&self.scr.x(), &pos.x());
+        vec.push((self.scr.y().start + (e as u16), i, rng));
+    }
+    vec
 }

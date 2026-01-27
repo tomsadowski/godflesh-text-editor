@@ -101,7 +101,6 @@ impl UI {
         }
     }
 } 
-
 pub struct TextEditor {
     pub page: Page,
     pub text: Vec<String>,
@@ -163,45 +162,4 @@ impl TextEditor {
             }
         }
     }
-//  pub fn delete(&mut self, pos: &View) -> Option<View> {
-//      let View(cursor, _) = view;
-//      if self.bounds.screen_range.get_idx(view) == self.text.len() + 1 {
-//          return None
-//      }
-//      let mut view = view.clone();
-//      self.text.remove(self.bounds.screen_range.get_idx(&view));
-//      if cursor + 1 != self.bounds.screen_range.1 {
-//          if let Some(s) = view.move_forward(&self.bounds, self.text.len() + 1, 1) {
-//              view = s;
-//          }
-//      }
-//      Some(view)
-//  }
-//  pub fn backspace(&mut self, col: &View) -> Option<View> {
-//      let cursor_range = &self.bounds.screen_range;
-//      if col.is_start(&self.bounds) {
-//          return None
-//      } 
-//      match col.move_backward(&self.bounds, 1) {
-//          true => {
-//              self.text.remove(cursor_range.get_idx(&col));
-//      //      self.cursor.resize(0, self.text.len(), &self.range);
-//              if col.cursor + 1 != cursor_range.1 {
-//                  col.move_forward(&self.bounds, 1);
-//                  Some(col.clone())
-//              } else {
-//                  Some(col.clone())
-//              }
-//          }
-//          false => None,
-//      }
-//  }
-//  pub fn insert(&mut self, view: &View, c: char) -> Option<View>{
-//      if self.bounds.screen_range.get_idx(view) + 1 == self.text.len() {
-//          self.text.push(c);
-//      } else {
-//          self.text.insert(self.bounds.screen_range.get_idx(view), c);
-//      }
-//      view.move_forward(&self.bounds, self.text.len() + 1, 1)
-//  }
 }

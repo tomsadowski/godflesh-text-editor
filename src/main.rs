@@ -3,7 +3,6 @@
 #![allow(dead_code)]
 #![allow(unused_imports)]
 
-mod bnd;    
 mod ui;
 mod scr;
 mod txt;
