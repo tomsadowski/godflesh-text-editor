@@ -1,8 +1,7 @@
 // ui
 
 use crate::{
-    bnd::{Page, Bound},
-    scr::{Screen, ScreenRange, DataRange, Pos, PosCol},
+    scr::{self, Screen, ScreenRange, DataScreen, DataRange, Pos, PosCol},
 };
 use crossterm::{
     event::{Event, KeyEvent, KeyEventKind, KeyCode, KeyModifiers},
@@ -24,7 +23,6 @@ pub enum View {
 pub struct UI {
     pub view: View,
     pub editor: TextEditor,
-    pub pos: Pos,
 }
 impl UI {
     // start with View::Tab
@@ -34,27 +32,21 @@ impl UI {
         let editor = TextEditor::new(&scr, 3, &txt);
         Self {
             view:   View::Text,
-            pos:    Pos::origin(&editor.scr),
             editor: editor,
         }
     }
     // resize all views, maybe do this in parallel?
     fn resize(&mut self, w: u16, h: u16) {
         let scr = Screen::origin(w, h);
-        self.pos = self.editor.resize(&scr, 3, &self.pos);
+        self.editor.resize(&scr, 3);
     }
     // display the current view
     pub fn view(&self, mut stdout: &Stdout) -> io::Result<()> {
         stdout
             .queue(Clear(ClearType::All))?
             .queue(cursor::Hide)?;
+        self.editor.view(stdout)
 
-        self.editor.view(&self.pos, stdout)?;
-
-        stdout
-            .queue(MoveTo(self.pos.x, self.pos.y))?
-            .queue(cursor::Show)?
-            .flush()
     }
     // Resize and Control-C is handled here, 
     // otherwise delegate to current view
@@ -80,13 +72,7 @@ impl UI {
                     kind: KeyEventKind::Press, ..
                 }
             ) => {
-                match self.editor.update(c, &self.pos) {
-                    Some(p) => {
-                        self.pos = p;
-                        true
-                    }
-                    None => false,
-                }
+                self.editor.update(c) 
             }
             _ => false,
         }
@@ -102,9 +88,11 @@ impl UI {
     }
 } 
 pub struct TextEditor {
-    pub page: Page,
-    pub text: Vec<String>,
-    pub scr: Screen,
+    pub text:   Vec<String>,
+    pub lens:   Vec<usize>,
+    pub dscr:   DataScreen,
+    pub scr:    Screen,
+    pub pos:    Pos,
 }
 impl TextEditor {
     pub fn new(scr: &Screen, spc: u16, source: &str) -> Self {
@@ -112,53 +100,69 @@ impl TextEditor {
             .lines()
             .map(|s| String::from(s))
             .collect();
-        let tscr = scr.crop_east(10);
-        let pscr = tscr.crop_north(3);
+        let lens: Vec<usize> = src
+            .iter()
+            .map(|s| s.len())
+            .collect();
+        let outer = scr.xcrop(8).ycrop(2);
+        let dscr  = DataScreen::new(outer, spc, spc);
+        let pos = dscr.new_pos();
+
         Self {
-            scr:    tscr,
-            page:   Page::new(&pscr, &src, spc, spc),
-            text:   src,
+            scr:  scr.clone(),
+            lens: lens,
+            pos: pos,
+            dscr: dscr,
+            text:  src,
         }
     }
-    pub fn view(&self, pos: &Pos, mut stdout: &Stdout) -> io::Result<()> {
+    pub fn view(&self, mut stdout: &Stdout) -> io::Result<()> {
+        let ranges = scr::get_ranges(&self.dscr, &self.pos, &self.lens);
         stdout
             .queue(MoveTo(self.scr.x, self.scr.y))?
-            .queue(Print(format!("{:?}", pos)))?
-            .queue(MoveTo(self.scr.x, self.scr.y + 1))?
-            .queue(Print(format!("{:?}", self.page.x(&pos))))?;
-        let ranges = self.page.get_ranges(&pos);
+            .queue(Print(format!("{:?}", self.pos)))?;
         for (y, i, r) in ranges.into_iter() {
             stdout
-                .queue(MoveTo(self.page.scr.x, y))?
+                .queue(MoveTo(self.dscr.outer.x, y))?
                 .queue(Print(&self.text[i][r.start..r.end]))?
-                .queue(MoveTo(self.page.scr.x().end + 2, y))?
+                .queue(MoveTo(self.dscr.outer.x().end + 2, y))?
                 .queue(Print(format!("{} {}", r.start, r.end)))?;
         }
-        stdout.flush()
+        stdout
+            .queue(MoveTo(self.pos.x, self.pos.y))?
+            .queue(cursor::Show)?
+            .flush()
     }
-    pub fn resize(&mut self, scr: &Screen, spc: u16, pos: &Pos) -> Pos {
-        let scr   = scr.crop_east(10);
-        let pscr  = scr.crop_north(3);
-        self.scr  = scr;
-        self.page = Page::new(&pscr, &self.text, spc, spc);
-        self.page.move_into_y(&self.page.move_into_x(pos))
+    pub fn resize(&mut self, scr: &Screen, spc: u16) {
+        let outer = scr.xcrop(8).ycrop(2);
+        let dscr  = DataScreen::new(outer, spc, spc);
+        self.pos = dscr.new_pos();
+        self.dscr = dscr;
+        self.scr = scr.clone();
     }
-    pub fn update(&mut self, c: char, pos: &Pos) -> Option<Pos> {
-        match c {
+    pub fn update(&mut self, c: char) -> bool {
+        let o = match c {
             'e' => {
-                self.page.move_left(&pos, 1)
+                scr::move_left(&self.dscr, &self.pos, 1)
             }
             'n' => {
-                self.page.move_right(&pos, 1)
+                scr::move_right(&self.dscr, &self.pos, &self.lens, 1)
             }
             'i' => {
-                self.page.move_down(&pos, 1)
+                scr::move_down(&self.dscr, &self.pos, &self.lens, 1)
             }
             'o' => {
-                self.page.move_up(&pos, 1)
+                scr::move_up(&self.dscr, &self.pos, &self.lens, 1)
             }
             _ => {
                 None
+            }
+        };
+        match o {
+            None => false,
+            Some(p) => {
+                self.pos = p;
+                true
             }
         }
     }
