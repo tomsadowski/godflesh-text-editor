@@ -149,10 +149,12 @@ impl Pos {
     }
 }
 
-pub fn move_into(   _: &ScreenRange, 
+pub fn move_into(   
+                    inner: &ScreenRange, 
                     outer: &ScreenRange, 
                     pos: &PosCol,
-                    len: usize  ) -> PosCol 
+                    len: usize  
+                    ) -> PosCol 
 {
     let mut pos = pos.clone();
     let (start, end) = 
@@ -164,7 +166,7 @@ pub fn move_into(   _: &ScreenRange,
                     .unwrap_or(u16::MIN))
             }
             false => 
-                (outer.start, outer.end)
+                (outer.start, inner.end)
         };
     if pos.screen < start {
         pos.screen = start;
@@ -175,10 +177,12 @@ pub fn move_into(   _: &ScreenRange,
     pos
 }
 
-pub fn move_backward(   inner:  &ScreenRange, 
+pub fn move_backward(   
+                        inner:  &ScreenRange, 
                         outer:  &ScreenRange, 
                         pos:    &PosCol, 
-                        step:   u16 ) -> Option<PosCol> 
+                        step:   u16 
+                        ) -> Option<PosCol> 
 {
     let mut step = step;
     let mut pos = pos.clone();
@@ -227,16 +231,27 @@ pub fn move_backward(   inner:  &ScreenRange,
     }
 }
 
-pub fn move_forward(    inner:  &ScreenRange, 
-                        outer:  &ScreenRange, 
-                        pos:    &PosCol, 
-                        len:    usize,
-                        step:   u16 ) -> Option<PosCol> 
+pub fn move_forward(    
+                        inner:      &ScreenRange, 
+                        outer:      &ScreenRange, 
+                        pos:        &PosCol, 
+                        dlength:    usize,
+                        step:       u16 
+                        ) -> Option<PosCol> 
 {
     let mut step = step;
     let mut pos = pos.clone();
-    let max_data = max_data(len, outer);
-    match (pos.screen == outer.end, pos.data == max_data) {
+    let screen_len = outer.len();
+    let screen_data_end = 
+        u16::try_from(
+            std::cmp::min(
+                    usize::from(outer.start) + dlength, 
+                    usize::from(outer.end)
+                ))
+        .unwrap_or(u16::MIN);
+    let max_data = dlength.saturating_sub(screen_len);
+
+    match (pos.screen == screen_data_end, pos.data == max_data) {
         // nowhere to go, nothing to change
         (true, true) => {
             None
@@ -252,10 +267,10 @@ pub fn move_forward(    inner:  &ScreenRange,
         }
         // move screen point
         (false, true) => {
-            if pos.screen + step <= outer.end {
+            if pos.screen + step <= screen_data_end {
                 pos.screen += step;
             } else {
-                pos.screen = outer.end;
+                pos.screen = screen_data_end;
             }
             Some(pos)
         }
@@ -268,30 +283,26 @@ pub fn move_forward(    inner:  &ScreenRange,
                     pos.data += usize::from(step);
                     Some(pos)
                 } else {
-                    step -= u16::try_from(max_data - pos.data)
-                        .unwrap_or(u16::MIN);
+                    let diff = 
+                        u16::try_from(max_data.saturating_sub(pos.data))
+                            .unwrap_or(u16::MIN);
+                    step = step.saturating_sub(diff);
                     pos.data = max_data;
-                    move_forward(inner, outer, &pos, len, step).or(Some(pos))
+                    move_forward(inner, outer, &pos, dlength, step).or(Some(pos))
                 }
             } else {
-                step -= inner.end - pos.screen;
+                let diff = inner.end.saturating_sub(pos.screen);
+                step = step.saturating_sub(diff);
                 pos.screen = inner.end;
-                move_forward(inner, outer, &pos, len, step).or(Some(pos))
+                move_forward(inner, outer, &pos, dlength, step).or(Some(pos))
             }
         }
     }
 }
 
-pub fn max_data(len: usize, rng: &ScreenRange) -> usize {
-    if len < rng.len() {
-        0
-    } else {
-        len - rng.len()
-    }
-}
-
 // returns the start and end of displayable text
-pub fn data_range(  rng: &ScreenRange, 
+pub fn data_range(  
+                    rng: &ScreenRange, 
                     pos: &PosCol, 
                     len: usize
                     ) -> DataRange 
@@ -306,7 +317,8 @@ pub fn data_range(  rng: &ScreenRange,
     }
 }
 
-pub fn move_left(   dscr:   &DataScreen, 
+pub fn move_left(   
+                    dscr:   &DataScreen, 
                     pos:    &Pos, 
                     step:   u16 
                     ) -> Option<Pos> 
@@ -320,7 +332,8 @@ pub fn move_left(   dscr:   &DataScreen,
         .map(|x| x.join_with_y(ycol))
 }
 
-pub fn move_up( dscr:   &DataScreen, 
+pub fn move_up( 
+                dscr:   &DataScreen, 
                 pos:    &Pos, 
                 data:   &Vec<usize>,
                 step:   u16 
@@ -336,13 +349,15 @@ pub fn move_up( dscr:   &DataScreen,
         .map(|p| move_into_x(dscr, &p, data))
 }
 
-pub fn move_right(  dscr:   &DataScreen, 
+pub fn move_right(  
+                    dscr:   &DataScreen, 
                     pos:    &Pos, 
                     data:   &Vec<usize>,
                     step:   u16 
                     ) -> Option<Pos> 
 {
-    let xlen    = data[dscr.outer.y().idx(&pos.y())];
+    let idx = dscr.outer.y().idx(&pos.y());
+    let xlen    = if idx >= data.len() {0} else {data[idx]};
     let xinner  = dscr.inner.x();
     let xouter  = dscr.outer.x();
     let xcol    = pos.x();
@@ -352,7 +367,8 @@ pub fn move_right(  dscr:   &DataScreen,
         .map(|x| x.join_with_y(ycol))
 }
 
-pub fn move_down(   dscr:   &DataScreen, 
+pub fn move_down(   
+                    dscr:   &DataScreen, 
                     pos:    &Pos, 
                     data:   &Vec<usize>,
                     step:   u16 
@@ -369,7 +385,8 @@ pub fn move_down(   dscr:   &DataScreen,
         .map(|p| move_into_x(dscr, &p, data))
 }
 
-pub fn move_into_x( dscr:   &DataScreen, 
+pub fn move_into_x( 
+                    dscr:   &DataScreen, 
                     pos:    &Pos,
                     data:   &Vec<usize>,
                     ) -> Pos 
@@ -384,7 +401,23 @@ pub fn move_into_x( dscr:   &DataScreen,
         .join_with_y(pos.y())
 }
 
-pub fn get_ranges(  dscr:   &DataScreen, 
+pub fn move_into_y( 
+                    dscr:   &DataScreen, 
+                    pos:    &Pos,
+                    data:   &Vec<usize>,
+                    ) -> Pos 
+{
+    let yinner  = dscr.inner.y();
+    let youter  = dscr.outer.y();
+    let ycol    = pos.y();
+    let ylen    = data.len();
+
+    move_into(&yinner, &youter, &ycol, ylen)
+        .join_with_x(pos.x())
+}
+
+pub fn get_ranges(  
+                    dscr:   &DataScreen, 
                     pos:    &Pos, 
                     data:   &Vec<usize>
                     ) -> Vec<(u16, usize, DataRange)> 
