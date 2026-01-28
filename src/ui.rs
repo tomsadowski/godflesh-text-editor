@@ -104,30 +104,35 @@ impl TextEditor {
             .iter()
             .map(|s| s.len())
             .collect();
-        let outer   = scr.xcrop(8).ycrop(2);
+        let outer   = scr.crop_x(8).crop_y(2);
         let txtscr  = DataScreen::new(outer, spc, spc);
         let pos     = txtscr.new_pos();
 
         Self {
             scr:    scr.clone(),
-            txtlen: txtlen,
-            pos:    pos,
             txtscr: txtscr,
+            pos:    pos,
+            txtlen: txtlen,
             txt:    txt,
         }
     }
     pub fn view(&self, mut stdout: &Stdout) -> io::Result<()> {
-        let ranges = scr::get_ranges(&self.txtscr, &self.pos, &self.txtlen);
         stdout
             .queue(MoveTo(self.scr.x, self.scr.y))?
             .queue(Print(format!("{:?}", self.pos)))?;
-        for (y, i, r) in ranges.into_iter() {
+
+        let ranges = scr::get_ranges(&self.txtscr, &self.pos, &self.txtlen);
+        let screen_start = self.txtscr.outer.x;
+        let screen_end   = self.txtscr.outer.x().end;
+
+        for (screen_idx, data_idx, start, end) in ranges.into_iter() {
             stdout
-                .queue(MoveTo(self.txtscr.outer.x, y))?
-                .queue(Print(&self.txt[i][r.start..r.end]))?
-                .queue(MoveTo(self.txtscr.outer.x().end + 2, y))?
-                .queue(Print(format!("{} {}", r.start, r.end)))?;
+                .queue(MoveTo(screen_start, screen_idx))?
+                .queue(Print(&self.txt[data_idx][start..end]))?
+                .queue(MoveTo(screen_end + 2, screen_idx))?
+                .queue(Print(format!("{} {}", start, end)))?;
         }
+
         stdout
             .queue(MoveTo(self.pos.x, self.pos.y))?
             .queue(cursor::Show)?
@@ -135,7 +140,7 @@ impl TextEditor {
     }
     pub fn resize(&mut self, scr: &Screen, spc: u16) {
         self.scr    = scr.clone();
-        let outer   = self.scr.xcrop(8).ycrop(2);
+        let outer   = self.scr.crop_x(8).crop_y(2);
         self.txtscr = DataScreen::new(outer, spc, spc);
         self.pos    = scr::resize(&self.txtscr, &self.pos, &self.txtlen);
     }

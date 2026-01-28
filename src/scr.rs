@@ -1,8 +1,5 @@
-#[derive(Clone)]
-pub struct DataRange {
-    pub start: usize, 
-    pub end: usize
-}
+use std::cmp::min;
+
 #[derive(Clone, Debug)]
 pub struct ScreenRange {
     pub start: u16, 
@@ -17,11 +14,11 @@ impl ScreenRange {
         }
     }
     pub fn from_length(start: u16, len: usize) -> ScreenRange {
-        let len = u16::try_from(len).unwrap_or(u16::MIN);
+        let len = u16_or_zero(len);
         ScreenRange {start: start, end: start + len}
     }
-    pub fn to_data_range(&self) -> DataRange {
-        DataRange {start: 0, end: self.len()}
+    pub fn to_data_range(&self) -> (usize, usize) {
+        (0, self.len())
     }
     // index of cursor within its range
     pub fn idx(&self, col: &PosCol) -> usize {
@@ -46,11 +43,11 @@ impl Screen {
     pub fn origin(w: u16, h: u16) -> Screen {
         Screen {x: 0, y: 0, w: w, h: h}
     }
-    pub fn ycrop(&self, step: u16) -> Screen {
+    pub fn crop_y(&self, step: u16) -> Screen {
         let screen = self.clone();
         screen.crop_north(step).crop_south(step)
     }
-    pub fn xcrop(&self, step: u16) -> Screen {
+    pub fn crop_x(&self, step: u16) -> Screen {
         let screen = self.clone();
         screen.crop_east(step).crop_west(step)
     }
@@ -99,7 +96,7 @@ pub struct DataScreen {
 impl DataScreen {
     pub fn new(outer: Screen, x: u16, y: u16) -> DataScreen {
         Self {
-            inner: outer.xcrop(x).ycrop(y),
+            inner: outer.crop_x(x).crop_y(y),
             outer: outer,
         }
     }
@@ -148,6 +145,9 @@ impl Pos {
         PosCol {screen: self.y, data: self.j}
     }
 }
+pub fn u16_or_zero(u: usize) -> u16 {
+    u16::try_from(u).unwrap_or(u16::MIN)
+}
 pub fn move_into(   inner: &ScreenRange, 
                     outer: &ScreenRange, 
                     pos: &PosCol,
@@ -155,15 +155,12 @@ pub fn move_into(   inner: &ScreenRange,
 {
     let mut pos = pos.clone();
     let (start, end) = 
-        match len < outer.len() {
-            true => {
-                pos.data = 0;
-                (outer.start, 
-                 outer.start + u16::try_from(len)
-                    .unwrap_or(u16::MIN))
-            }
-            false => 
-                (outer.start, inner.end)
+        if len < outer.len() {
+            pos.data = 0;
+            let len = u16_or_zero(len);
+            (outer.start, outer.start + len)
+        } else {
+            (outer.start, inner.end)
         };
     if pos.screen < start {
         pos.screen = start;
@@ -212,8 +209,7 @@ pub fn move_backward(   inner:  &ScreenRange,
                     pos.data -= usize::from(step);
                     Some(pos)
                 } else {
-                    step -= u16::try_from(pos.data)
-                        .unwrap_or(u16::MIN);
+                    step -= u16_or_zero(pos.data);
                     pos.data = usize::MIN;
                     move_backward(inner, outer, &pos, step)
                         .or(Some(pos))
@@ -233,17 +229,13 @@ pub fn move_forward(    inner:      &ScreenRange,
                         dlength:    usize,
                         step:       u16 ) -> Option<PosCol> 
 {
-    let mut step = step;
-    let mut pos = pos.clone();
-    let screen_len = outer.len();
-    let screen_data_end = 
-        u16::try_from(
-            std::cmp::min(
-                    usize::from(outer.start) + dlength, 
-                    usize::from(outer.end)
-                ))
-        .unwrap_or(u16::MIN);
-    let max_data = dlength.saturating_sub(screen_len);
+    let screen_data_end = u16_or_zero(min(
+        usize::from(outer.start) + dlength, 
+        usize::from(outer.end)));
+    let mut step    = step;
+    let mut pos     = pos.clone();
+    let screen_len  = outer.len();
+    let max_data    = dlength.saturating_sub(screen_len);
 
     match (pos.screen == screen_data_end, pos.data == max_data) {
         // nowhere to go, nothing to change
@@ -277,9 +269,7 @@ pub fn move_forward(    inner:      &ScreenRange,
                     pos.data += usize::from(step);
                     Some(pos)
                 } else {
-                    let diff = 
-                        u16::try_from(max_data.saturating_sub(pos.data))
-                            .unwrap_or(u16::MIN);
+                    let diff = u16_or_zero(max_data.saturating_sub(pos.data));
                     step = step.saturating_sub(diff);
                     pos.data = max_data;
                     move_forward(inner, outer, &pos, dlength, step)
@@ -296,14 +286,13 @@ pub fn move_forward(    inner:      &ScreenRange,
     }
 }
 // returns the start and end of displayable text
-pub fn data_range(rng: &ScreenRange, pos: &PosCol, len: usize) -> DataRange {
+pub fn data_range(rng: &ScreenRange, pos: &PosCol, len: usize) 
+    -> (usize, usize) 
+{
     if len < rng.len() {
-        DataRange {start: 0, end: len}
+        (0, len)
     } else {
-        DataRange {
-            start:  pos.data, 
-            end:    std::cmp::min(pos.data + rng.len(), len),
-        }
+        (pos.data, min(pos.data + rng.len(), len))
     }
 }
 pub fn move_left(dscr: &DataScreen, pos: &Pos, step: u16) -> Option<Pos> {
@@ -370,7 +359,7 @@ pub fn move_into_x(dscr: &DataScreen, pos: &Pos, data: &Vec<usize>) -> Pos {
     let y_col   = pos.y();
     let idx1    = dscr.outer.y().idx(&y_col);
     let idx2    = data.len().saturating_sub(1);
-    let idx     = std::cmp::min(idx1, idx2);
+    let idx     = min(idx1, idx2);
     let x_len   = data[idx];
 
     move_into(&x_inner, &x_outer, &x_col, x_len)
@@ -387,18 +376,18 @@ pub fn move_into_y(dscr: &DataScreen, pos: &Pos, data: &Vec<usize>) -> Pos {
         .join_with_x(x_col)
 }
 pub fn get_ranges(dscr: &DataScreen, pos: &Pos, data: &Vec<usize>) 
-    -> Vec<(u16, usize, DataRange)> 
+    -> Vec<(u16, usize, usize, usize)> 
 {
-    let mut vec: Vec<(u16, usize, DataRange)> = vec![];
-    let drng    = data_range(&dscr.outer.y(), &pos.y(), data.len());
+    let mut vec: Vec<(u16, usize, usize, usize)> = vec![];
+    let (start, end) = data_range(&dscr.outer.y(), &pos.y(), data.len());
     let x_outer = dscr.outer.x();
     let x_col   = pos.x();
     let y_start = dscr.outer.y().start;
 
-    for (e, i) in (drng.start..drng.end).into_iter().enumerate() {
-        let rng = data_range(&x_outer, &x_col, data[i]);
+    for (e, i) in (start..end).into_iter().enumerate() {
+        let (a, b) = data_range(&x_outer, &x_col, data[i]);
         let scr_idx = y_start + (e as u16);
-        vec.push((scr_idx, i, rng));
+        vec.push((scr_idx, i, a, b));
     }
     vec
 }
