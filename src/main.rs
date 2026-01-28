@@ -4,8 +4,8 @@
 //#![allow(unused_imports)]
 
 mod ui;
-mod scr;
-mod txt;
+mod screen;
+mod text;
 
 use crossterm::{
     QueueableCommand, terminal, event,

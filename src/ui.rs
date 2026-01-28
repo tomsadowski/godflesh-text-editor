@@ -1,7 +1,7 @@
 // ui
 
 use crate::{
-    scr::{self, Screen, DataScreen, Pos},
+    screen::{self, Screen, DataScreen, Pos},
 };
 use crossterm::{
     QueueableCommand, 
@@ -93,6 +93,7 @@ pub struct TextEditor {
     pub txtscr: DataScreen,
     pub scr:    Screen,
     pub pos:    Pos,
+    pub pref_x: u16,
 }
 impl TextEditor {
     pub fn new(scr: &Screen, spc: u16, txt: &str) -> Self {
@@ -106,11 +107,12 @@ impl TextEditor {
             .collect();
         let outer   = scr.crop_x(8).crop_y(2);
         let txtscr  = DataScreen::new(outer, spc, spc);
-        let pos     = txtscr.new_pos();
+        let pos     = Pos::origin(&txtscr.outer);
 
         Self {
             scr:    scr.clone(),
             txtscr: txtscr,
+            pref_x: pos.x,
             pos:    pos,
             txtlen: txtlen,
             txt:    txt,
@@ -119,11 +121,11 @@ impl TextEditor {
     pub fn view(&self, mut stdout: &Stdout) -> io::Result<()> {
         stdout
             .queue(MoveTo(self.scr.x, self.scr.y))?
-            .queue(Print(format!("{:?}", self.pos)))?;
+            .queue(Print(format!("{:?} {}", self.pos, self.pref_x)))?;
 
-        let ranges = scr::get_ranges(&self.txtscr, &self.pos, &self.txtlen);
+        let ranges = screen::get_ranges(&self.txtscr, &self.pos, &self.txtlen);
         let screen_start = self.txtscr.outer.x;
-        let screen_end   = self.txtscr.outer.x().end;
+        let screen_end   = self.txtscr.outer.x_rng().end;
 
         for (screen_idx, data_idx, start, end) in ranges.into_iter() {
             stdout
@@ -142,21 +144,47 @@ impl TextEditor {
         self.scr    = scr.clone();
         let outer   = self.scr.crop_x(8).crop_y(2);
         self.txtscr = DataScreen::new(outer, spc, spc);
-        self.pos    = scr::resize(&self.txtscr, &self.pos, &self.txtlen);
+        self.pos    = screen::resize(&self.txtscr, &self.pos, &self.txtlen);
+        self.pref_x = self.pos.x;
+    }
+    fn move_left(&mut self, step: u16) -> Option<Pos> {
+        let pos = screen::move_left(&self.txtscr, &self.pos, step);
+        match &pos {
+            Some(p) => self.pref_x = p.x,
+            None => {}
+        }
+        pos
+    }
+    fn move_right(&mut self, step: u16) -> Option<Pos> {
+        let pos = screen::move_right
+            (&self.txtscr, &self.pos, &self.txtlen, step);
+        match &pos {
+            Some(p) => self.pref_x = p.x,
+            None => {}
+        }
+        pos
+    }
+    fn move_up(&mut self, step: u16) -> Option<Pos> {
+        self.pos.x = self.pref_x;
+        screen::move_up(&self.txtscr, &self.pos, &self.txtlen, step)
+    }
+    fn move_down(&mut self, step: u16) -> Option<Pos> {
+        self.pos.x = self.pref_x;
+        screen::move_down(&self.txtscr, &self.pos, &self.txtlen, step)
     }
     pub fn update(&mut self, c: char) -> bool {
         let o = match c {
             'e' => {
-                scr::move_left(&self.txtscr, &self.pos, 1)
+                self.move_left(1)
             }
             'n' => {
-                scr::move_right(&self.txtscr, &self.pos, &self.txtlen, 1)
+                self.move_right(1)
             }
             'i' => {
-                scr::move_down(&self.txtscr, &self.pos, &self.txtlen, 1)
+                self.move_down(1)
             }
             'o' => {
-                scr::move_up(&self.txtscr, &self.pos, &self.txtlen, 1)
+                self.move_up(1)
             }
             _ => {
                 None
