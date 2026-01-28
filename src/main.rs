@@ -1,7 +1,7 @@
 // gem/src/main
 
 #![allow(dead_code)]
-#![allow(unused_imports)]
+//#![allow(unused_imports)]
 
 mod ui;
 mod scr;

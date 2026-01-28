@@ -1,11 +1,11 @@
 // ui
 
 use crate::{
-    scr::{self, Screen, ScreenRange, DataScreen, DataRange, Pos, PosCol},
+    scr::{self, Screen, DataScreen, Pos},
 };
 use crossterm::{
-    event::{Event, KeyEvent, KeyEventKind, KeyCode, KeyModifiers},
     QueueableCommand, 
+    event::{Event, KeyEvent, KeyEventKind, KeyCode, KeyModifiers},
     terminal::{Clear, ClearType},
     cursor::{self, MoveTo},
     style::{Print},
@@ -88,44 +88,44 @@ impl UI {
     }
 } 
 pub struct TextEditor {
-    pub text:   Vec<String>,
-    pub lens:   Vec<usize>,
-    pub dscr:   DataScreen,
+    pub txt:    Vec<String>,
+    pub txtlen: Vec<usize>,
+    pub txtscr: DataScreen,
     pub scr:    Screen,
     pub pos:    Pos,
 }
 impl TextEditor {
-    pub fn new(scr: &Screen, spc: u16, source: &str) -> Self {
-        let src: Vec<String> = source
+    pub fn new(scr: &Screen, spc: u16, txt: &str) -> Self {
+        let txt: Vec<String> = txt
             .lines()
             .map(|s| String::from(s))
             .collect();
-        let lens: Vec<usize> = src
+        let txtlen: Vec<usize> = txt
             .iter()
             .map(|s| s.len())
             .collect();
-        let outer = scr.xcrop(8).ycrop(2);
-        let dscr  = DataScreen::new(outer, spc, spc);
-        let pos = dscr.new_pos();
+        let outer   = scr.xcrop(8).ycrop(2);
+        let txtscr  = DataScreen::new(outer, spc, spc);
+        let pos     = txtscr.new_pos();
 
         Self {
-            scr:  scr.clone(),
-            lens: lens,
-            pos: pos,
-            dscr: dscr,
-            text:  src,
+            scr:    scr.clone(),
+            txtlen: txtlen,
+            pos:    pos,
+            txtscr: txtscr,
+            txt:    txt,
         }
     }
     pub fn view(&self, mut stdout: &Stdout) -> io::Result<()> {
-        let ranges = scr::get_ranges(&self.dscr, &self.pos, &self.lens);
+        let ranges = scr::get_ranges(&self.txtscr, &self.pos, &self.txtlen);
         stdout
             .queue(MoveTo(self.scr.x, self.scr.y))?
             .queue(Print(format!("{:?}", self.pos)))?;
         for (y, i, r) in ranges.into_iter() {
             stdout
-                .queue(MoveTo(self.dscr.outer.x, y))?
-                .queue(Print(&self.text[i][r.start..r.end]))?
-                .queue(MoveTo(self.dscr.outer.x().end + 2, y))?
+                .queue(MoveTo(self.txtscr.outer.x, y))?
+                .queue(Print(&self.txt[i][r.start..r.end]))?
+                .queue(MoveTo(self.txtscr.outer.x().end + 2, y))?
                 .queue(Print(format!("{} {}", r.start, r.end)))?;
         }
         stdout
@@ -134,26 +134,24 @@ impl TextEditor {
             .flush()
     }
     pub fn resize(&mut self, scr: &Screen, spc: u16) {
-        let outer = scr.xcrop(8).ycrop(2);
-        let dscr  = DataScreen::new(outer, spc, spc);
-        let pos = scr::move_into_y(&dscr, &self.pos, &self.lens);
-        self.pos = scr::move_into_x(&dscr, &pos, &self.lens);
-        self.dscr = dscr;
-        self.scr = scr.clone();
+        self.scr    = scr.clone();
+        let outer   = self.scr.xcrop(8).ycrop(2);
+        self.txtscr = DataScreen::new(outer, spc, spc);
+        self.pos    = scr::resize(&self.txtscr, &self.pos, &self.txtlen);
     }
     pub fn update(&mut self, c: char) -> bool {
         let o = match c {
             'e' => {
-                scr::move_left(&self.dscr, &self.pos, 1)
+                scr::move_left(&self.txtscr, &self.pos, 1)
             }
             'n' => {
-                scr::move_right(&self.dscr, &self.pos, &self.lens, 1)
+                scr::move_right(&self.txtscr, &self.pos, &self.txtlen, 1)
             }
             'i' => {
-                scr::move_down(&self.dscr, &self.pos, &self.lens, 1)
+                scr::move_down(&self.txtscr, &self.pos, &self.txtlen, 1)
             }
             'o' => {
-                scr::move_up(&self.dscr, &self.pos, &self.lens, 1)
+                scr::move_up(&self.txtscr, &self.pos, &self.txtlen, 1)
             }
             _ => {
                 None
