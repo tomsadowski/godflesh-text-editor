@@ -142,6 +142,9 @@ impl TextEditor {
     }
     pub fn resize(&mut self, scr: &Screen, spc: u16) {
         self.scr    = scr.clone();
+        let y_col   = self.pos.y_col();
+        let y_rng   = self.txtscr.outer.y_rng();
+        let _idx    = y_rng.idx(&y_col);
         let outer   = self.scr.crop_x(8).crop_y(2);
         self.txtscr = DataScreen::new(outer, spc, spc);
         self.pos    = screen::resize(&self.txtscr, &self.pos, &self.txtlen);

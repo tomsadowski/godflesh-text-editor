@@ -330,9 +330,10 @@ pub fn resize(dscr: &DataScreen, pos: &Pos, data: &Vec<usize>) -> Pos {
 pub fn move_into_x(dscr: &DataScreen, pos: &Pos, data: &Vec<usize>) -> Pos {
     let x_inner = dscr.inner.x_rng();
     let x_outer = dscr.outer.x_rng();
+    let y_outer = dscr.outer.y_rng();
     let x_col   = pos.x_col();
     let y_col   = pos.y_col();
-    let idx1    = dscr.outer.y_rng().idx(&y_col);
+    let idx1    = y_outer.idx(&y_col);
     let idx2    = data.len().saturating_sub(1);
     let idx     = min(idx1, idx2);
     let x_len   = data[idx];
